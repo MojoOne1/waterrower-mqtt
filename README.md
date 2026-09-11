@@ -73,8 +73,9 @@ the YAML.
 
 - Sends the `USB` command on boot (without it the S4 stays silent) and
   repeats it automatically if no data arrives for 10 s.
-- Polls the S4's memory addresses every second during a workout, every 5 s
-  while idle.
+- Polls the S4's memory addresses every second during a workout. While
+  idle it sends nothing at all – every packet the S4 receives resets its
+  auto power-off timer, so the monitor still switches itself off as usual.
 - Detects session start on the first stroke and session end after 30 s of
   inactivity. Each session gets an ID that's a local timestamp (SNTP).
 - Publishes every value individually over MQTT, plus bundled as JSON on
@@ -219,6 +220,10 @@ switches it; the default follows the browser language.
   rolled back to the old one. Test the last change in isolation.
 - **Session start times are off by a few hours:** `TZ` in the compose file
   doesn't match the ESP's time zone.
+- **The monitor never switches itself off:** something is sending it
+  packets while idle. The firmware deliberately stays silent outside a
+  session for this reason – check for other clients on the USB link or
+  a modified polling interval.
 
 ## Open items
 

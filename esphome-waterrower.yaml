@@ -247,6 +247,7 @@ script:
           topic: waterrower/session/last
           retain: true
           payload: !lambda return id(last_summary_json);
+      - script.execute: poll_s4_slow   # final lifetime distance
 
   # All live values bundled incl. the session ID - for Telegraf/InfluxDB,
   # so the ID is attached to the data point as a tag.
@@ -267,16 +268,17 @@ script:
 # Timers
 ###############################################################################
 interval:
-  # Polling: every second during a workout, every 5 s while idle.
+  # Polling only during a workout. While idle the S4 gets no requests at
+  # all - every packet it receives resets its auto power-off timer, so
+  # polling would keep it awake forever. Its PING every second is enough
+  # for link supervision.
   - interval: 1s
     then:
       - lambda: |-
-          id(poll_tick) = (id(poll_tick) + 1) % 5;
-          if (id(session_active) || id(poll_tick) == 0) {
+          if (id(session_active)) {
+            id(poll_tick) = (id(poll_tick) + 1) % 5;
             id(poll_s4).execute();
-          }
-          if (id(poll_tick) == 2) {
-            id(poll_s4_slow).execute();
+            if (id(poll_tick) == 0) id(poll_s4_slow).execute();
           }
 
           // accumulate per-second session averages
@@ -335,7 +337,14 @@ interval:
               mark_activity();
               continue;
             }
-            if (line == "PING" || line == "OK" || line == "_WR_") continue;
+            if (line == "_WR_") {
+              // handshake done: read everything once so HA shows current
+              // values, then stay quiet until a session starts
+              id(poll_s4).execute();
+              id(poll_s4_slow).execute();
+              continue;
+            }
+            if (line == "PING" || line == "OK") continue;
 
             id(s4_last_raw_line) = line;
 
