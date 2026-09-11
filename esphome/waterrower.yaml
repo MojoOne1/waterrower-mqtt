@@ -35,9 +35,23 @@ wifi:
 
 web_server:
   port: 80
+  version: 3        # sorting_groups needs v3
   local: true
   allowed_origins:
     - "http://homeassistant.local:8123"   # address of your Home Assistant
+  sorting_groups:
+    - id: wr_group_live
+      name: "Live"
+      sorting_weight: 10
+    - id: wr_group_session
+      name: "Session"
+      sorting_weight: 20
+    - id: wr_group_control
+      name: "Control"
+      sorting_weight: 30
+    - id: wr_group_diag
+      name: "Diagnostics"
+      sorting_weight: 40
 
 mqtt:
   broker: !secret mqtt_broker
@@ -587,6 +601,7 @@ sensor:
   - platform: template
     name: "Distance"
     id: wr_distance
+    web_server: {sorting_group_id: wr_group_live, sorting_weight: 40}
     state_topic: waterrower/distance
     unit_of_measurement: "m"
     accuracy_decimals: 0
@@ -596,6 +611,7 @@ sensor:
   - platform: template
     name: "Speed"
     id: wr_speed
+    web_server: {sorting_group_id: wr_group_live, sorting_weight: 10}
     state_topic: waterrower/speed
     unit_of_measurement: "m/s"
     accuracy_decimals: 2
@@ -606,6 +622,7 @@ sensor:
   - platform: template
     name: "500m Split (s)"
     id: wr_split_s
+    web_server: {sorting_group_id: wr_group_live, sorting_weight: 35}
     state_topic: waterrower/split_500m_s
     unit_of_measurement: "s"
     device_class: duration
@@ -619,6 +636,7 @@ sensor:
   - platform: template
     name: "Stroke Rate"
     id: wr_stroke_rate
+    web_server: {sorting_group_id: wr_group_live, sorting_weight: 20}
     state_topic: waterrower/stroke_rate
     unit_of_measurement: "spm"
     accuracy_decimals: 0
@@ -628,6 +646,7 @@ sensor:
   - platform: template
     name: "Strokes"
     id: wr_strokes
+    web_server: {sorting_group_id: wr_group_live, sorting_weight: 60}
     state_topic: waterrower/strokes
     accuracy_decimals: 0
     lambda: return id(s4_strokes);
@@ -638,6 +657,7 @@ sensor:
   - platform: template
     name: "Ratio"
     id: wr_ratio
+    web_server: {sorting_group_id: wr_group_live, sorting_weight: 90}
     state_topic: waterrower/ratio
     accuracy_decimals: 2
     lambda: |-
@@ -648,6 +668,7 @@ sensor:
   - platform: template
     name: "Pull Time"
     id: wr_pull_time
+    web_server: {sorting_group_id: wr_group_live, sorting_weight: 80}
     unit_of_measurement: "s"
     accuracy_decimals: 2
     lambda: return id(s4_stroke_pull_25ms) * 0.025f;
@@ -656,6 +677,7 @@ sensor:
   - platform: template
     name: "Duration"
     id: wr_elapsed
+    web_server: {sorting_group_id: wr_group_live, sorting_weight: 55}
     state_topic: waterrower/duration
     unit_of_measurement: "s"
     accuracy_decimals: 0
@@ -666,6 +688,7 @@ sensor:
   - platform: template
     name: "Watts"
     id: wr_watts
+    web_server: {sorting_group_id: wr_group_live, sorting_weight: 70}
     state_topic: waterrower/watts
     unit_of_measurement: "W"
     accuracy_decimals: 0
@@ -675,6 +698,7 @@ sensor:
   - platform: template
     name: "Total Distance"
     id: wr_total_distance
+    web_server: {sorting_group_id: wr_group_session, sorting_weight: 60}
     state_topic: waterrower/total_distance
     unit_of_measurement: "m"
     accuracy_decimals: 0
@@ -685,6 +709,7 @@ sensor:
   - platform: template
     name: "Session Avg Speed"
     id: wr_sess_avg_speed
+    web_server: {sorting_group_id: wr_group_session, sorting_weight: 30}
     unit_of_measurement: "m/s"
     accuracy_decimals: 2
     lambda: |-
@@ -695,6 +720,7 @@ sensor:
   - platform: template
     name: "Session Avg Stroke Rate"
     id: wr_sess_avg_spm
+    web_server: {sorting_group_id: wr_group_session, sorting_weight: 40}
     unit_of_measurement: "spm"
     accuracy_decimals: 1
     lambda: |-
@@ -717,6 +743,7 @@ binary_sensor:
     id: wr_s4_connected
     state_topic: waterrower/s4_connected
     entity_category: diagnostic
+    web_server: {sorting_group_id: wr_group_diag, sorting_weight: 20}
     lambda: return id(s4_present);
 
   - platform: template
@@ -724,11 +751,13 @@ binary_sensor:
     id: wr_usb_mode
     state_topic: waterrower/usb_mode
     entity_category: diagnostic
+    web_server: {sorting_group_id: wr_group_diag, sorting_weight: 30}
     lambda: return id(usb_mode);
 
   - platform: template
     name: "Session Active"
     id: wr_session_active
+    web_server: {sorting_group_id: wr_group_session, sorting_weight: 10}
     state_topic: waterrower/session_active
     lambda: return id(session_active);
 
@@ -740,18 +769,21 @@ text_sensor:
     id: wr_firmware_version
     state_topic: waterrower/firmware_version
     entity_category: diagnostic
+    web_server: {sorting_group_id: wr_group_diag, sorting_weight: 50}
     lambda: return {std::string("${version}")};
     update_interval: never   # published on MQTT connect (retained)
 
   - platform: version
     name: "ESPHome Version"
     entity_category: diagnostic
+    web_server: {sorting_group_id: wr_group_diag, sorting_weight: 60}
 
   # One line that says what the link is doing right now.
   - platform: template
     name: "S4 Status"
     id: wr_s4_status
     entity_category: diagnostic
+    web_server: {sorting_group_id: wr_group_diag, sorting_weight: 10}
     update_interval: never
     lambda: |-
       if (!id(s4_present)) return {std::string("off / not connected")};
@@ -763,6 +795,7 @@ text_sensor:
   - platform: template
     name: "Duration (hh:mm:ss)"
     id: wr_elapsed_formatted
+    web_server: {sorting_group_id: wr_group_live, sorting_weight: 50}
     update_interval: never
     lambda: |-
       int total = (int) id(s4_elapsed_s);
@@ -774,6 +807,7 @@ text_sensor:
   - platform: template
     name: "500m Split"
     id: wr_split
+    web_server: {sorting_group_id: wr_group_live, sorting_weight: 30}
     state_topic: waterrower/split_500m
     update_interval: never
     lambda: |-
@@ -786,6 +820,7 @@ text_sensor:
   - platform: template
     name: "Session ID"
     id: wr_session_id
+    web_server: {sorting_group_id: wr_group_session, sorting_weight: 20}
     state_topic: waterrower/session_id
     lambda: return {id(session_id)};
     update_interval: never
@@ -793,12 +828,15 @@ text_sensor:
   - platform: template
     name: "Last Session"
     id: wr_last_summary
+    web_server: {sorting_group_id: wr_group_session, sorting_weight: 50}
     lambda: return {id(last_summary_json)};
     update_interval: never
 
   - platform: template
     name: "S4 Raw Data"
     id: wr_raw_debug
+    entity_category: diagnostic
+    web_server: {sorting_group_id: wr_group_diag, sorting_weight: 40}
     lambda: return {id(s4_last_raw_line)};
     update_interval: never
 
@@ -808,6 +846,7 @@ number:
     name: "Session Timeout"
     id: wr_session_timeout
     entity_category: config
+    web_server: {sorting_group_id: wr_group_control, sorting_weight: 30}
     unit_of_measurement: "min"
     min_value: 1
     max_value: 60
@@ -822,6 +861,7 @@ number:
     name: "USB Idle Timeout"
     id: wr_usb_idle_timeout
     entity_category: config
+    web_server: {sorting_group_id: wr_group_control, sorting_weight: 40}
     unit_of_measurement: "s"
     min_value: 10
     max_value: 600
@@ -836,6 +876,7 @@ number:
     name: "USB Probe Interval"
     id: wr_probe_interval
     entity_category: config
+    web_server: {sorting_group_id: wr_group_control, sorting_weight: 50}
     unit_of_measurement: "min"
     min_value: 1
     max_value: 30
@@ -851,6 +892,7 @@ switch:
     name: "USB Link"
     id: wr_usb_link
     entity_category: config
+    web_server: {sorting_group_id: wr_group_control, sorting_weight: 20}
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
     turn_on_action:
@@ -865,5 +907,6 @@ button:
   - platform: template
     name: "Reset"
     id: wr_reset
+    web_server: {sorting_group_id: wr_group_control, sorting_weight: 10}
     on_press:
       - script.execute: s4_reset

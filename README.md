@@ -193,7 +193,9 @@ the YAML.
   during a workout, once after the handshake, when the S4 goes idle and
   after a session ends or a reset. While idle nothing is sent and the log
   stays quiet; a lost link is logged once, not every retry.
-- Serves a local web UI at `http://esphome-waterrower.local/`.
+- Serves a local web UI at `http://esphome-waterrower.local/`, grouped
+  into Live, Session, Control and Diagnostics instead of one long
+  alphabetical list.
 
 ### Home Assistant dashboard
 
