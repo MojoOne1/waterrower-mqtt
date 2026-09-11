@@ -1,184 +1,184 @@
 # waterrower-mqtt
 
-Liest den WaterRower Series IV Performance Monitor über USB aus und stellt
-die Werte in Home Assistant, per MQTT und über eine lokale Weboberfläche
-bereit. Kein Rechner am Rudergerät nötig – ein ESP32-S3 für unter 10 €
-übernimmt die Rolle des USB-Hosts.
+Reads out a WaterRower Series IV Performance Monitor over USB and makes the
+values available in Home Assistant, via MQTT, and through a local web UI.
+No computer needed at the rowing machine – an ESP32-S3 for under €10 takes
+on the role of USB host.
 
 ## Hardware
 
-| Teil | Hinweis |
+| Part | Note |
 |---|---|
-| ESP32-S3-DevKitC-1 (Klon, N16R8) | Zwei USB-C-Ports: **COM** (UART, Flashen/Strom) und **USB** (nativer OTG-Port) |
-| WaterRower S4 Performance Monitor | Batteriebetrieben (self-powered), USB-Mini-Port |
-| USB-C-auf-USB-A-Adapter | Zwischen ESP32-„USB"-Port und dem S4-Kabel |
-| USB-Netzteil | Am **COM**-Port |
+| ESP32-S3-DevKitC-1 (clone, N16R8) | Two USB-C ports: **COM** (UART, flashing/power) and **USB** (native OTG port) |
+| WaterRower S4 Performance Monitor | Battery-powered (self-powered), USB Mini port |
+| USB-C-to-USB-A adapter | Between the ESP32's "USB" port and the S4 cable |
+| USB power supply | On the **COM** port |
 
-### Die USB-OTG-Lötbrücke
+### The USB-OTG solder bridge
 
-Auf der Unterseite des DevKitC-1-Klons befindet sich eine Lötbrücke mit
-der Beschriftung **USB-OTG**. Sie ist ab Werk offen und muss **geschlossen**
-werden. Sie verbindet die VBUS-Leitungen beider USB-C-Ports miteinander:
-Erst dadurch liegt am „USB"-Port die 5V-Spannung an, die der S4 braucht,
-um überhaupt einen Host zu erkennen. Der S4 zieht darüber praktisch keinen
-Strom, er läuft aus seinen eigenen Batterien.
+On the underside of the DevKitC-1 clone there's a solder bridge labeled
+**USB-OTG**. It's open by default and must be **closed**. It ties the VBUS
+lines of both USB-C ports together: only then does the "USB" port carry the
+5V the S4 needs to detect a host at all. The S4 draws virtually no power
+through it – it runs off its own batteries.
 
-**Wichtig:** Nach dem Schließen der Brücke niemals beide Ports gleichzeitig
-an separate Stromquellen hängen.
+**Important:** Once the bridge is closed, never connect both ports to
+separate power sources at the same time.
 
-### Verkabelung
+### Wiring
 
 ```
-USB-Netzteil ──► [COM]  ESP32-S3  [USB] ──► USB-C/A-Adapter ──► S4-Kabel ──► S4
-                                   ▲
-                          (Lötbrücke USB-OTG geschlossen)
+USB power supply ──► [COM]  ESP32-S3  [USB] ──► USB-C/A adapter ──► S4 cable ──► S4
+                                       ▲
+                              (USB-OTG solder bridge closed)
 ```
 
 ## Firmware
 
-ESPHome ≥ 2026.4 mit ESP-IDF-Framework. Die `usb_uart`-Komponente von
-ESPHome bildet den S4 als generisches CDC-ACM-Gerät auf ein `uart:`-
-Interface ab; der USB-Host-Stack kommt von ESPHome, das Protokoll-Parsing
-sitzt in Lambdas in der YAML.
+ESPHome ≥ 2026.4 with the ESP-IDF framework. ESPHome's `usb_uart` component
+exposes the S4 as a generic CDC-ACM device on a `uart:` interface; the USB
+host stack comes from ESPHome, and the protocol parsing lives in lambdas in
+the YAML.
 
-### Ersteinrichtung
+### Initial setup
 
-1. `secrets.yaml.example` nach `secrets.yaml` kopieren und ausfüllen.
-2. Erstes Flashen über den **COM**-Port (Web-Flasher unter web.esphome.io
-   oder ESPHome-Dashboard). Falls kein serieller Port erscheint: BOOT-Taste
-   gedrückt halten, Kabel einstecken, BOOT loslassen.
-3. Danach läuft alles per OTA – kein Kabel mehr nötig.
-4. In `esphome-waterrower.yaml` unter `web_server.allowed_origins` die
-   Adresse der eigenen Home-Assistant-Instanz eintragen.
+1. Copy `secrets.yaml.example` to `secrets.yaml` and fill it in.
+2. First flash over the **COM** port (web flasher at web.esphome.io or the
+   ESPHome dashboard). If no serial port shows up: hold BOOT, plug in the
+   cable, release BOOT.
+3. After that everything runs over OTA – no cable needed anymore.
+4. In `esphome-waterrower.yaml`, under `web_server.allowed_origins`, enter
+   the address of your own Home Assistant instance.
 
-### Was die Firmware macht
+### What the firmware does
 
-- Sendet beim Start das `USB`-Kommando (ohne das bleibt der S4 stumm) und
-  wiederholt es automatisch, wenn 10 s lang keine Daten kommen.
-- Pollt die Speicheradressen des S4 jede Sekunde während des Trainings,
-  alle 5 s im Leerlauf.
-- Erkennt Session-Start am ersten Ruderschlag und Session-Ende nach 30 s
-  ohne Aktivität. Jede Session bekommt eine ID als Zeitstempel (SNTP).
-- Published alle Werte einzeln per MQTT sowie gebündelt als JSON auf
-  `waterrower/live` (mit Session-ID im Datensatz). Bei Session-Ende geht
-  eine Zusammenfassung retained auf `waterrower/session/last`.
-- Bietet eine lokale Weboberfläche unter `http://esphome-waterrower.local/`.
+- Sends the `USB` command on boot (without it the S4 stays silent) and
+  repeats it automatically if no data arrives for 10 s.
+- Polls the S4's memory addresses every second during a workout, every 5 s
+  while idle.
+- Detects session start on the first stroke and session end after 30 s of
+  inactivity. Each session gets an ID that's a timestamp (SNTP).
+- Publishes every value individually over MQTT, plus bundled as JSON on
+  `waterrower/live` (with the session ID in the payload). At session end a
+  retained summary goes out on `waterrower/session/last`.
+- Serves a local web UI at `http://esphome-waterrower.local/`.
 
-## Protokoll
+## Protocol
 
-Grundlage ist das Dokument **„Water Rower S4 & S5 USB Protocol, Issue 1.04"**
-(im Repo unter `docs/`). Kurzfassung:
+Based on the document **"Water Rower S4 & S5 USB Protocol, Issue 1.04"**
+(in this repo under `docs/`). Summary:
 
-- Serielle CDC-Verbindung, 19200 Baud, ASCII, Zeilen enden mit `\r\n`
-- `USB` öffnet die Kommunikation, Antwort `_WR_`
-- `IRS xxx` / `IRD xxx` / `IRT xxx` lesen 1 / 2 / 3 Bytes ab Adresse `xxx`
-- Antworten `IDS` / `IDD` / `IDT` liefern die Bytes **High zuerst**
-- `SS` / `SE` = Schlagbeginn / -ende, `Pxx` = Paddel-Pulse pro 25 ms,
-  `PING` jede Sekunde im Leerlauf
-- Max. ein Paket pro 25 ms senden
+- Serial CDC connection, 19200 baud, ASCII, lines end with `\r\n`
+- `USB` opens the connection, response `_WR_`
+- `IRS xxx` / `IRD xxx` / `IRT xxx` read 1 / 2 / 3 bytes starting at address
+  `xxx`
+- Responses `IDS` / `IDD` / `IDT` return the bytes **high byte first**
+- `SS` / `SE` = stroke start / end, `Pxx` = paddle pulses per 25 ms, `PING`
+  every second while idle
+- Send at most one packet per 25 ms
 
-### Verwendete Adressen
+### Addresses used
 
-| Adresse | Register laut Spec | Bedeutung | Status |
+| Address | Register per spec | Meaning | Status |
 |---|---|---|---|
-| `057`/`058` | distance_low/hi | Angezeigte Distanz (m) | bestätigt |
-| `14A`/`14B` | m_s_low/hi_average | Geschwindigkeit (cm/s), entspricht Display | bestätigt |
-| `1A9` | zone_sr_val | Schlagfrequenz | bestätigt |
-| `1E1`–`1E3` | display_sec/min/hr | Zeit, **BCD-kodiert** | bestätigt |
-| `140`/`141` | strokes_cnt_low/hi | Schlagzahl | plausibel |
-| `142`/`143` | stroke_average / stroke_pull | Schlagzeiten in 25-ms-Schritten | ungeprüft |
-| `081`/`082` | total_dis_low/hi | Lebenszeit-Distanz | ungeprüft |
-| `088`/`089` | kcal_watts_low/hi | Watt | **Skalierung ungeprüft** |
-| `1A0` | zone_hr_val | Puls (nur mit Brustgurt) | auskommentiert |
+| `057`/`058` | distance_low/hi | Displayed distance (m) | confirmed |
+| `14A`/`14B` | m_s_low/hi_average | Speed (cm/s), matches the display | confirmed |
+| `1A9` | zone_sr_val | Stroke rate | confirmed |
+| `1E1`–`1E3` | display_sec/min/hr | Time, **BCD-encoded** | confirmed |
+| `140`/`141` | strokes_cnt_low/hi | Stroke count | plausible |
+| `142`/`143` | stroke_average / stroke_pull | Stroke timings in 25 ms steps | unverified |
+| `081`/`082` | total_dis_low/hi | Lifetime distance | unverified |
+| `088`/`089` | kcal_watts_low/hi | Watts | **scaling unverified** |
+| `1A0` | zone_hr_val | Heart rate (chest strap only) | commented out |
 
-Stolperfallen, die uns Zeit gekostet haben:
+Pitfalls that cost us time:
 
-- `148`/`149` (`m_s_*_total`) liefert nicht den Display-Wert, `14A`/`14B`
-  schon.
-- `14C` ist ein Zähler, keine Geschwindigkeit.
-- Die Zeitregister sind BCD: `0x13` bedeutet 13, nicht 19.
+- `148`/`149` (`m_s_*_total`) doesn't return the display value, `14A`/`14B`
+  does.
+- `14C` is a counter, not a speed.
+- The time registers are BCD: `0x13` means 13, not 19.
 
-## MQTT-Topics
+## MQTT topics
 
-| Topic | Inhalt |
+| Topic | Content |
 |---|---|
-| `waterrower/distance` | Distanz in m |
-| `waterrower/speed` | Geschwindigkeit in m/s |
-| `waterrower/stroke_rate` | Schlagfrequenz |
-| `waterrower/strokes` | Schlagzahl |
-| `waterrower/ratio` | Zug-/Erholungs-Ratio |
-| `waterrower/duration` | Dauer in s |
-| `waterrower/watts` | Watt |
-| `waterrower/total_distance` | Lebenszeit-Distanz in m |
-| `waterrower/split_500m` | 500m-Split als `m:ss` |
+| `waterrower/distance` | Distance in m |
+| `waterrower/speed` | Speed in m/s |
+| `waterrower/stroke_rate` | Stroke rate |
+| `waterrower/strokes` | Stroke count |
+| `waterrower/ratio` | Pull/recovery ratio |
+| `waterrower/duration` | Duration in s |
+| `waterrower/watts` | Watts |
+| `waterrower/total_distance` | Lifetime distance in m |
+| `waterrower/split_500m` | 500m split as `m:ss` |
 | `waterrower/session_active` | `ON` / `OFF` |
-| `waterrower/session_id` | aktuelle Session-ID |
-| `waterrower/live` | alle Werte als JSON, 1×/s im Training |
-| `waterrower/session/last` | Zusammenfassung der letzten Session (retained) |
+| `waterrower/session_id` | Current session ID |
+| `waterrower/live` | All values as JSON, 1×/s during a workout |
+| `waterrower/session/last` | Summary of the last session (retained) |
 
 ## Tracker (Docker)
 
-Eigenständige Aufzeichnung und Auswertung, ohne InfluxDB oder Grafana.
-Ein Container, SQLite als Speicher, Weboberfläche ohne externe
-Abhängigkeiten. Einzige Voraussetzung: ein erreichbarer MQTT-Broker.
+Standalone recording and analysis, no InfluxDB or Grafana required. One
+container, SQLite for storage, a web UI with no external dependencies. The
+only requirement is a reachable MQTT broker.
 
 ```bash
 cd docker
 docker compose up -d
 ```
 
-Danach unter `http://<host>:8080/` erreichbar. Beim ersten Aufruf öffnet
-sich das Formular für die Broker-Verbindung (Adresse, Port, Login,
-Topic-Präfix); die Einstellungen werden in `docker/data/settings.json`
-gespeichert und lassen sich jederzeit über den Status oben rechts ändern.
-Alternativ können die Werte in `docker-compose.yml` vorbelegt werden.
-Die Datenbank liegt in `docker/data/waterrower.db`.
+Then reachable at `http://<host>:8080/`. On first visit, a form for the
+broker connection (address, port, login, topic prefix) opens; settings are
+saved to `docker/data/settings.json` and can be changed anytime via the
+status indicator in the top right. Alternatively, the values can be
+pre-filled in `docker-compose.yml`. The database lives at
+`docker/data/waterrower.db`.
 
-Was der Tracker macht:
+What the tracker does:
 
-- Zeigt die Live-Werte in der Anordnung des S4-Displays
-- Speichert jede Einheit aus `waterrower/live` (1 Messpunkt pro Sekunde)
-  und übernimmt die Zusammenfassung aus `waterrower/session/last`
-- Listet alle Einheiten, zeigt Verlauf von Geschwindigkeit und
-  Schlagfrequenz, vergleicht bis zu vier Einheiten übereinander
-- CSV-Export und Löschen pro Einheit
+- Shows live values laid out like the S4 display
+- Stores every session from `waterrower/live` (1 sample per second) and
+  picks up the summary from `waterrower/session/last`
+- Lists all sessions, shows speed and stroke-rate history, compares up to
+  four sessions overlaid
+- CSV export and per-session delete
 
-Schnittstelle (für eigene Auswertungen):
+Interface (for your own analysis):
 
-| Pfad | Inhalt |
+| Path | Content |
 |---|---|
-| `GET` / `POST /api/settings` | Broker-Einstellungen lesen / setzen (verbindet neu) |
-| `GET /api/live` | aktueller Zustand |
-| `GET /api/stream` | Live-Updates als Server-Sent Events |
-| `GET /api/sessions` | Liste aller Einheiten |
-| `GET /api/sessions/{id}` | Einheit mit allen Messpunkten |
-| `GET /api/sessions/{id}/export.csv` | Messpunkte als CSV |
-| `DELETE /api/sessions/{id}` | Einheit löschen |
+| `GET` / `POST /api/settings` | Read / set broker settings (reconnects) |
+| `GET /api/live` | Current state |
+| `GET /api/stream` | Live updates as Server-Sent Events |
+| `GET /api/sessions` | List of all sessions |
+| `GET /api/sessions/{id}` | Session with all samples |
+| `GET /api/sessions/{id}/export.csv` | Samples as CSV |
+| `DELETE /api/sessions/{id}` | Delete a session |
 
-Wird der Tracker erst nach dem ESP gestartet, fehlen die Messpunkte
-davor – die Session-ID trägt aber den Startzeitpunkt, die Sortierung
-bleibt korrekt.
+If the tracker is started after the ESP, the samples from before are
+missing – but the session ID carries the start time, so ordering stays
+correct.
 
-## Fehlersuche
+## Troubleshooting
 
-- **Sensoren bleiben 0, Log zeigt keine USB-Meldung:** Der ESP32 sieht kein
-  Gerät. Lötbrücke prüfen (Multimeter: ~5 V am VBUS-Pin des „USB"-Ports),
-  Adapter auf Datenleitungen prüfen.
-- **Gerät wird erkannt, aber keine Antworten:** Handshake fehlt. Im Log
-  sollte nach `USB` ein `_WR_` kommen.
-- **Rohdaten ansehen:** In der YAML `usb_uart.channels.debug: true` setzen,
-  dann erscheint jedes Paket im Log als Byte-Folge. Der Sensor
-  „WaterRower S4 Rohdaten" zeigt die letzte geparste Zeile.
-- **OTA rollback detected:** Die neue Firmware ist beim Boot abgestürzt,
-  ESPHome hat die alte zurückgespielt. Letzte Änderung isoliert testen.
+- **Sensors stay at 0, log shows no USB message:** The ESP32 doesn't see a
+  device. Check the solder bridge (multimeter: ~5V on the VBUS pin of the
+  "USB" port), check the adapter's data lines.
+- **Device is detected but no responses:** Handshake is missing. The log
+  should show a `_WR_` after `USB`.
+- **Inspect raw data:** Set `usb_uart.channels.debug: true` in the YAML,
+  then every packet shows up in the log as a byte sequence. The
+  "WaterRower S4 Raw Data" sensor shows the last parsed line.
+- **OTA rollback detected:** The new firmware crashed on boot, ESPHome
+  rolled back to the old one. Test the last change in isolation.
 
-## Offene Punkte
+## Open items
 
-- Verifikation von Ratio- und Watt-Register am Display
-- Workout-Vorgabe aus Home Assistant (`WSI`/`WSU`-Kommandos)
-- Umschalten der Anzeigeeinheit (`DI`-Kommandos)
-- HTML-Nachbau des S4-Displays für Home Assistant
-- Telegraf-Anbindung an InfluxDB (`telegraf-waterrower.conf` ist ein Entwurf,
-  optional neben dem Docker-Tracker)
-- Workout-Übersicht in HA (z. B. Tracker per iframe einbinden)
-- Puls-Sensorik bei Anschaffung eines Brustgurts
+- Verify the ratio and watts registers against the display
+- Workout presets from Home Assistant (`WSI`/`WSU` commands)
+- Switching the display unit (`DI` commands)
+- HTML recreation of the S4 display for Home Assistant
+- Telegraf connection to InfluxDB (`telegraf-waterrower.conf` is a draft,
+  optional alongside the Docker tracker)
+- Workout overview in HA (e.g. embed the tracker via iframe)
+- Heart-rate sensing once a chest strap is acquired
