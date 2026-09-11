@@ -76,8 +76,10 @@ the YAML.
 - Polls the S4's memory addresses every second during a workout. While
   idle it sends nothing at all – every packet the S4 receives resets its
   auto power-off timer, so the monitor still switches itself off as usual.
-- Detects session start on the first stroke and session end after 30 s of
-  inactivity. Each session gets an ID that's a local timestamp (SNTP).
+- Detects session start on the first stroke and session end after 30 s
+  without stroke or paddle packets from the S4 (the speed register is not
+  used for this – it keeps its last value after you stop). Each session
+  gets an ID that's a local timestamp (SNTP).
 - Publishes every value individually over MQTT, plus bundled as JSON on
   `waterrower/live` (with the session ID in the payload). At session end a
   retained summary goes out on `waterrower/session/last`.

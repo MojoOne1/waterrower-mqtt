@@ -332,7 +332,8 @@ interval:
             id(s4_rx_buffer).clear();
             id(last_rx_ms) = millis();
 
-            // stroke events and paddle pulses: activity, no value
+            // Stroke events and paddle pulses are the S4's own activity
+            // signals (auto-sent while rowing); PING means "no rowing".
             if (line == "SS" || line == "SE" || (line.size() == 3 && line[0] == 'P')) {
               mark_activity();
               continue;
@@ -363,10 +364,9 @@ interval:
               if (addr == "140") id(s4_strokes) = val;
               if (addr == "081") id(s4_total_distance_m) = val;
               if (addr == "088") id(s4_watts) = val;
-              if (addr == "14A") {
-                id(s4_speed_cms) = val;
-                if (val > 0) mark_activity();
-              }
+              // 14A holds its last value after rowing stops, so it must
+              // NOT count as activity - only SS/SE/Pxx do (see above).
+              if (addr == "14A") id(s4_speed_cms) = val;
 
             } else if (line.size() >= 12 && line.compare(0, 3, "IDT") == 0) {
               std::string addr = line.substr(3, 3);
