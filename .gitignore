@@ -1,0 +1,4 @@
+secrets.yaml
+.esphome/
+docker/data/
+__pycache__/

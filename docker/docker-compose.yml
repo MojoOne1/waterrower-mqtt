@@ -1,0 +1,17 @@
+services:
+  waterrower-tracker:
+    build: .
+    container_name: waterrower-tracker
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    # Optional: Vorbelegung fuer das Einstellungsformular. Alles, was im
+    # Formular gespeichert wird, landet in ./data/settings.json und hat Vorrang.
+    environment:
+      MQTT_HOST: ""
+      MQTT_PORT: 1883
+      MQTT_USERNAME: ""
+      MQTT_PASSWORD: ""
+      MQTT_PREFIX: waterrower
+    volumes:
+      - ./data:/data
