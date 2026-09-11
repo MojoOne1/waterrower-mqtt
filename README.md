@@ -5,6 +5,25 @@ values available in Home Assistant, via MQTT, and through a local web UI.
 No computer needed at the rowing machine – an ESP32-S3 for under €10 takes
 on the role of USB host.
 
+```
+WaterRower S4 ──USB──► ESP32-S3 (ESPHome) ──MQTT──► broker ──► Tracker (Docker, web UI)
+                            │                                   ──► Home Assistant (native API)
+                            └── local web UI                     ──► Telegraf/InfluxDB (optional)
+```
+
+Two parts, usable independently:
+
+- **Firmware** (`esphome-waterrower.yaml`) – ESPHome config for the ESP32-S3.
+  Talks the S4's serial protocol, detects sessions, publishes to MQTT and
+  exposes everything as Home Assistant entities.
+- **Tracker** (`docker/`) – a single container that records every session
+  from MQTT into SQLite and serves a web UI: live display, per-session
+  charts, session comparison, CSV export.
+
+| Live | History & comparison |
+|---|---|
+| ![Live view](docs/screenshots/live.png) | ![Session history](docs/screenshots/history.png) |
+
 ## Hardware
 
 | Part | Note |
@@ -43,12 +62,12 @@ the YAML.
 ### Initial setup
 
 1. Copy `secrets.yaml.example` to `secrets.yaml` and fill it in.
-2. First flash over the **COM** port (web flasher at web.esphome.io or the
+2. In `esphome-waterrower.yaml`, under `web_server.allowed_origins`, enter
+   the address of your Home Assistant instance.
+3. First flash over the **COM** port (web flasher at web.esphome.io or the
    ESPHome dashboard). If no serial port shows up: hold BOOT, plug in the
    cable, release BOOT.
-3. After that everything runs over OTA – no cable needed anymore.
-4. In `esphome-waterrower.yaml`, under `web_server.allowed_origins`, enter
-   the address of your own Home Assistant instance.
+4. After that everything runs over OTA – no cable needed anymore.
 
 ### What the firmware does
 
@@ -57,7 +76,7 @@ the YAML.
 - Polls the S4's memory addresses every second during a workout, every 5 s
   while idle.
 - Detects session start on the first stroke and session end after 30 s of
-  inactivity. Each session gets an ID that's a timestamp (SNTP).
+  inactivity. Each session gets an ID that's a local timestamp (SNTP).
 - Publishes every value individually over MQTT, plus bundled as JSON on
   `waterrower/live` (with the session ID in the payload). At session end a
   retained summary goes out on `waterrower/session/last`.
@@ -122,36 +141,40 @@ Standalone recording and analysis, no InfluxDB or Grafana required. One
 container, SQLite for storage, a web UI with no external dependencies. The
 only requirement is a reachable MQTT broker.
 
-There are two `docker-compose.yml` files, for two different situations:
+### Deploy
 
-- **`docker-compose.yml`** (repo root) – pulls the prebuilt image from
-  GitHub Container Registry (`ghcr.io/mojoone1/waterrower-mqtt`), published
-  automatically by `.github/workflows/docker-publish.yml` on every push to
-  `master`. This is the one to use for deploying: it's the only file a
-  host needs (e.g. as a Dockge stack) – no repo checkout, no local build.
-  ```bash
-  docker compose up -d
-  ```
-- **`docker/docker-compose.yml`** – builds the image locally from
-  `docker/`, for development or testing changes before they're pushed.
-  ```bash
-  cd docker
-  docker compose up -d --build
-  ```
+The image is published to GitHub Container Registry for `linux/amd64` and
+`linux/arm64` (Raspberry Pi 4/5 etc.) by `.github/workflows/docker-publish.yml`
+on every push to `master`.
 
-The GHCR package follows the repo's visibility (private by default). To
-pull it on a deployment host either make the package public (package page
-on GitHub → Package settings → Change visibility), or `docker login
-ghcr.io` on the host with a PAT scoped to `read:packages`.
+The `docker-compose.yml` at the repo root pulls that image – it's the only
+file a host needs (e.g. as a Dockge or Portainer stack), no checkout, no
+build:
 
-Then reachable at `http://<host>:8080/`. On first visit, a form for the
-broker connection (address, port, login, topic prefix) opens; settings are
-saved to `docker/data/settings.json` and can be changed anytime via the
-status indicator in the top right. Alternatively, the values can be
-pre-filled in `docker-compose.yml`. The database lives at
-`docker/data/waterrower.db`.
+```bash
+docker compose up -d
+```
 
-What the tracker does:
+Then open `http://<host>:8080/`. On first visit, a form for the broker
+connection (address, port, login, topic prefix) opens; settings are saved to
+`./data/settings.json` and can be changed anytime via the status indicator
+in the top right. Alternatively pre-fill the `MQTT_*` variables in the
+compose file. The database lives at `./data/waterrower.db`.
+
+Set `TZ` in the compose file to the ESP's time zone – session IDs are local
+timestamps, and the tracker uses `TZ` to turn them into the start times
+shown in the UI.
+
+### Develop
+
+`docker/docker-compose.yml` builds the image from source instead:
+
+```bash
+cd docker
+docker compose up -d --build
+```
+
+### What the tracker does
 
 - Shows live values laid out like the S4 display
 - Stores every session from `waterrower/live` (1 sample per second) and
@@ -160,7 +183,13 @@ What the tracker does:
   four sessions overlaid
 - CSV export and per-session delete
 
-Interface (for your own analysis):
+If the tracker is started after the ESP, the samples from before are
+missing – but the session ID carries the start time, so ordering stays
+correct.
+
+### API
+
+For your own analysis:
 
 | Path | Content |
 |---|---|
@@ -172,9 +201,7 @@ Interface (for your own analysis):
 | `GET /api/sessions/{id}/export.csv` | Samples as CSV |
 | `DELETE /api/sessions/{id}` | Delete a session |
 
-If the tracker is started after the ESP, the samples from before are
-missing – but the session ID carries the start time, so ordering stays
-correct.
+The UI is currently German-only.
 
 ## Troubleshooting
 
@@ -188,6 +215,8 @@ correct.
   "WaterRower S4 Raw Data" sensor shows the last parsed line.
 - **OTA rollback detected:** The new firmware crashed on boot, ESPHome
   rolled back to the old one. Test the last change in isolation.
+- **Session start times are off by a few hours:** `TZ` in the compose file
+  doesn't match the ESP's time zone.
 
 ## Open items
 
@@ -199,3 +228,4 @@ correct.
   optional alongside the Docker tracker)
 - Workout overview in HA (e.g. embed the tracker via iframe)
 - Heart-rate sensing once a chest strap is acquired
+- English UI for the tracker

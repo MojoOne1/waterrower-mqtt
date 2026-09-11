@@ -43,6 +43,10 @@ class LiveState:
     def subscribe(self, cb):
         self._listeners.append(cb)
 
+    def unsubscribe(self, cb):
+        if cb in self._listeners:
+            self._listeners.remove(cb)
+
     def _notify(self):
         snap = self.snapshot()
         for cb in list(self._listeners):

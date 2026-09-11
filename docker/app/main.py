@@ -6,6 +6,7 @@ import io
 import json
 import logging
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -49,12 +50,15 @@ db = Database(DB_PATH)
 state = LiveState()
 ingest = MqttIngest(db, state, load_settings())
 
-app = FastAPI(title="WaterRower Tracker")
 
-
-@app.on_event("startup")
-async def _startup():
+@asynccontextmanager
+async def lifespan(_: FastAPI):
     ingest.start()
+    yield
+    ingest.stop()
+
+
+app = FastAPI(title="WaterRower Tracker", lifespan=lifespan)
 
 
 # --- Einstellungen ------------------------------------------------------
@@ -102,24 +106,30 @@ def live():
 async def stream():
     """Server-Sent Events: jeder MQTT-Update landet sofort im Browser."""
     queue: asyncio.Queue = asyncio.Queue(maxsize=50)
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
+
+    def enqueue(snap):
+        # Slow consumer: drop the oldest snapshot, the newest is what matters.
+        if queue.full():
+            queue.get_nowait()
+        queue.put_nowait(snap)
 
     def push(snap):
-        try:
-            loop.call_soon_threadsafe(queue.put_nowait, snap)
-        except asyncio.QueueFull:
-            pass
+        loop.call_soon_threadsafe(enqueue, snap)
 
     state.subscribe(push)
 
     async def gen():
-        yield f"data: {json.dumps(state.snapshot())}\n\n"
-        while True:
-            try:
-                snap = await asyncio.wait_for(queue.get(), timeout=15)
-                yield f"data: {json.dumps(snap)}\n\n"
-            except asyncio.TimeoutError:
-                yield ": keepalive\n\n"
+        try:
+            yield f"data: {json.dumps(state.snapshot())}\n\n"
+            while True:
+                try:
+                    snap = await asyncio.wait_for(queue.get(), timeout=15)
+                    yield f"data: {json.dumps(snap)}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+        finally:
+            state.unsubscribe(push)
 
     return StreamingResponse(gen(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache"})

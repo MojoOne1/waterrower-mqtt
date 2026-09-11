@@ -1,3 +1,5 @@
+# Local build, for development: builds the image from this folder.
+# For deployment use the docker-compose.yml at the repo root instead.
 services:
   waterrower-tracker:
     build: .
@@ -5,9 +7,11 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080"
-    # Optional: Vorbelegung fuer das Einstellungsformular. Alles, was im
-    # Formular gespeichert wird, landet in ./data/settings.json und hat Vorrang.
     environment:
+      # Must match the ESP's time zone: session IDs are local timestamps.
+      TZ: Europe/Berlin
+      # Optional: pre-fill the settings form. Anything saved through the
+      # form ends up in ./data/settings.json and takes precedence.
       MQTT_HOST: ""
       MQTT_PORT: 1883
       MQTT_USERNAME: ""
