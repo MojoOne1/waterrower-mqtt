@@ -129,6 +129,10 @@ globals:
     type: uint32_t
     restore_value: false
     initial_value: "0"
+  - id: status_key              # last published combination of the link flags
+    type: uint8_t
+    restore_value: false
+    initial_value: "255"
 
   # --- Readings (addresses per "Water Rower S4 S5 USB Protocol Iss 1.04") ---
   - id: s4_distance_m           # 057/058 distance_low/hi
@@ -450,6 +454,14 @@ interval:
             }
           }
 
+          // Human-readable link status, published whenever a flag changes.
+          uint8_t key = (present ? 8 : 0) | (id(session_active) ? 4 : 0) |
+                        (id(usb_mode) ? 2 : 0) | (id(sleeping) ? 1 : 0);
+          if (key != id(status_key)) {
+            id(status_key) = key;
+            id(wr_s4_status).update();
+          }
+
           // Polling only during a workout - every packet the S4 receives
           // counts as activity for it.
           if (id(session_active)) {
@@ -688,12 +700,14 @@ binary_sensor:
   - platform: template
     name: "S4 Connected"
     id: wr_s4_connected
+    state_topic: waterrower/s4_connected
     entity_category: diagnostic
     lambda: return id(s4_present);
 
   - platform: template
     name: "USB Mode"
     id: wr_usb_mode
+    state_topic: waterrower/usb_mode
     entity_category: diagnostic
     lambda: return id(usb_mode);
 
@@ -717,6 +731,19 @@ text_sensor:
   - platform: version
     name: "ESPHome Version"
     entity_category: diagnostic
+
+  # One line that says what the link is doing right now.
+  - platform: template
+    name: "S4 Status"
+    id: wr_s4_status
+    entity_category: diagnostic
+    update_interval: never
+    lambda: |-
+      if (!id(s4_present)) return {std::string("off / not connected")};
+      if (id(session_active)) return {std::string("recording")};
+      if (id(usb_mode)) return {std::string("connected, USB mode")};
+      if (id(sleeping)) return {std::string("connected, sleeping (EXIT sent)")};
+      return {std::string("connected, handshake pending")};
 
   - platform: template
     name: "Duration (hh:mm:ss)"

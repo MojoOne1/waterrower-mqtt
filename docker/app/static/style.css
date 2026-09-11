@@ -43,6 +43,10 @@ a { text-decoration: underline; text-underline-offset: 3px; }
 .lang button + button { border-left: 1px solid var(--line); }
 .lang button:hover { color: var(--text); }
 .lang button.active { background: var(--housing); color: #fff; }
+.s4 { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--muted); padding: 0.3rem 0.6rem; }
+.s4 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.s4.on .dot { background: var(--ash); }
+.s4.usb .dot { background: #5f8a4e; }
 .conn { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--muted); border: 1px solid transparent; padding: 0.3rem 0.6rem; }
 .conn:hover, .conn[aria-expanded="true"] { border-color: var(--line); }
 .conn .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }

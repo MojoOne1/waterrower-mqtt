@@ -257,6 +257,8 @@ Pitfalls that cost us time:
 | `waterrower/session_id` | Current session ID |
 | `waterrower/live` | All values as JSON, 1×/s during a workout |
 | `waterrower/session/last` | Summary of the last session (retained) |
+| `waterrower/s4_connected` | `ON` / `OFF` – the S4 is switched on and enumerated on USB (retained) |
+| `waterrower/usb_mode` | `ON` / `OFF` – the S4 is in USB mode and streaming (retained) |
 | `waterrower/firmware_version` | Firmware version (retained) |
 | `waterrower/cmd/end_session` | **To** the ESP: end the running session; payload `reset` also resets the monitor |
 
@@ -301,7 +303,9 @@ docker compose -f docker-compose.build.yml up -d --build
 
 ### What the tracker does
 
-- Shows live values laid out like the S4 display
+- Shows live values laid out like the S4 display, plus whether the
+  ergometer is off, on, or linked to the ESP (header, next to the broker
+  status)
 - Stores every session from `waterrower/live` (1 sample per second) and
   picks up the summary from `waterrower/session/last`
 - Lists all sessions, shows speed and stroke-rate history, compares up to

@@ -17,6 +17,7 @@ const I18N = {
     locale: "de-DE",
     connecting: "verbinde …", connOff: "nicht verbunden", connOn: "verbunden", connLive: "Aufzeichnung läuft",
     connLost: "Verbindung verloren, versuche erneut …",
+    s4Unknown: "Ergometer: unbekannt", s4Off: "Ergometer aus", s4On: "Ergometer an", s4Usb: "Ergometer verbunden",
     settingsTitle: "Verbindung zum MQTT-Broker",
     labelHost: "Adresse", labelPort: "Port", labelUser: "Benutzer", labelPassword: "Passwort", labelPrefix: "Topic-Präfix",
     phHost: "10.0.0.5 oder broker.local", phOptional: "optional",
@@ -46,6 +47,7 @@ const I18N = {
     locale: "en-GB",
     connecting: "connecting …", connOff: "not connected", connOn: "connected", connLive: "recording",
     connLost: "Connection lost, retrying …",
+    s4Unknown: "Ergometer: unknown", s4Off: "Ergometer off", s4On: "Ergometer on", s4Usb: "Ergometer connected",
     settingsTitle: "MQTT broker connection",
     labelHost: "Address", labelPort: "Port", labelUser: "Username", labelPassword: "Password", labelPrefix: "Topic prefix",
     phHost: "10.0.0.5 or broker.local", phOptional: "optional",
@@ -155,6 +157,12 @@ function renderLive(snap) {
   conn.classList.toggle("on", snap.connected);
   conn.classList.toggle("live", snap.connected && active);
   $("conn-text").textContent = !snap.connected ? t("connOff") : active ? t("connLive") : t("connOn");
+
+  // Ergometer link, as reported by the ESP (retained MQTT topics).
+  const s4 = $("s4"), present = v.s4_connected, usb = v.usb_mode;
+  s4.classList.toggle("on", present === true);
+  s4.classList.toggle("usb", present === true && usb === true);
+  $("s4-text").textContent = present == null ? t("s4Unknown") : !present ? t("s4Off") : usb ? t("s4Usb") : t("s4On");
 
   $("end").hidden = !(active && snap.session_id);
   renderFooter();

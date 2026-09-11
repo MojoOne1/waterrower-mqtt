@@ -148,6 +148,8 @@ class MqttIngest:
                 self.state.update(split_500m=payload)
             elif topic == "firmware_version":
                 self.state.update(firmware_version=payload)
+            elif topic in ("s4_connected", "usb_mode"):
+                self.state.update(**{topic: payload == "ON"})
         except (ValueError, json.JSONDecodeError) as e:
             log.debug("Ignoring %s: %s (%s)", topic, payload[:60], e)
 
