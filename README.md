@@ -28,7 +28,7 @@ Two parts, usable independently:
 
 | Part | Note |
 |---|---|
-| ESP32-S3-DevKitC-1 (clone, N16R8) | Two USB-C ports: **COM** (UART, flashing/power) and **USB** (native OTG port) |
+| ESP32-S3-DevKitC-1 (clone, N16R8) | Two USB-C ports: **COM** (UART, flashing/power) and **USB** (native OTG port). The exact board used: [ESP32-S3-WROOM-1 N16R8 DevKitC-1 on amazon.de](https://www.amazon.de/dp/B0FYFF8CB2/) – any DevKitC-1 clone with two USB-C ports and the USB-OTG solder bridge should do |
 | WaterRower S4 Performance Monitor | Battery-powered (self-powered), USB Mini port |
 | USB-C-to-USB-A adapter | Between the ESP32's "USB" port and the S4 cable |
 | USB power supply | On the **COM** port |
