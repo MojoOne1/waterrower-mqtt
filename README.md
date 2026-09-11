@@ -84,8 +84,9 @@ the YAML.
 
 ## Protocol
 
-Based on the document **"Water Rower S4 & S5 USB Protocol, Issue 1.04"**
-(in this repo under `docs/`). Summary:
+Based on WaterRower's document **"Water Rower S4 & S5 USB Protocol, Issue
+1.04"**. It isn't included here because its redistribution terms are unclear,
+but searching for the exact title finds it quickly. Summary:
 
 - Serial CDC connection, 19200 baud, ASCII, lines end with `\r\n`
 - `USB` opens the connection, response `_WR_`
@@ -229,3 +230,7 @@ The UI is currently German-only.
 - Workout overview in HA (e.g. embed the tracker via iframe)
 - Heart-rate sensing once a chest strap is acquired
 - English UI for the tracker
+
+## License
+
+[MIT](LICENSE)
