@@ -23,6 +23,11 @@ esp32:
     type: esp-idf
 
 logger:
+  logs:
+    # entity state publishes are event-driven (see publish_sensors) but
+    # still ~15 lines per second during a workout - keep them out of the log
+    sensor: INFO
+    text_sensor: INFO
 
 api:
 
@@ -46,6 +51,8 @@ mqtt:
   discovery: false
   topic_prefix: waterrower
   reboot_timeout: 0s
+  on_connect:
+    - lambda: id(wr_firmware_version).update();
   on_message:
     # Sent by the tracker's "End session" button (payload "reset" also
     # resets the monitor); any other payload just closes the session.
@@ -102,6 +109,10 @@ globals:
     type: bool
     restore_value: false
     initial_value: "true"
+  - id: link_ok                 # S4 answered the handshake and keeps talking
+    type: bool
+    restore_value: false
+    initial_value: "false"
 
   # --- Readings (addresses per "Water Rower S4 S5 USB Protocol Iss 1.04") ---
   - id: s4_distance_m           # 057/058 distance_low/hi
@@ -190,6 +201,39 @@ script:
           id: s4_uart
           data: "IV?\r\n"
 
+  # Entities publish only when called from here: every second during a
+  # workout, once after the handshake, on the idle transition and after a
+  # session ends or the monitor is reset. Idle = no publishes, quiet log.
+  - id: publish_sensors
+    then:
+      - lambda: |-
+          id(wr_distance).update();
+          id(wr_speed).update();
+          id(wr_stroke_rate).update();
+          id(wr_strokes).update();
+          id(wr_ratio).update();
+          id(wr_pull_time).update();
+          id(wr_elapsed).update();
+          id(wr_watts).update();
+          id(wr_total_distance).update();
+          id(wr_sess_avg_speed).update();
+          id(wr_sess_avg_spm).update();
+          id(wr_elapsed_formatted).update();
+          id(wr_split).update();
+          id(wr_session_id).update();
+          id(wr_last_summary).update();
+          id(wr_raw_debug).update();
+
+  # After the handshake: read everything once so HA shows current values,
+  # give the S4 time to answer, publish, then stay quiet.
+  - id: initial_poll
+    then:
+      - script.execute: poll_s4
+      - script.wait: poll_s4
+      - script.execute: poll_s4_slow
+      - delay: 300ms
+      - script.execute: publish_sensors
+
   # Spec p.1: at most one packet per 25 ms.
   - id: poll_s4
     then:
@@ -276,6 +320,8 @@ script:
           retain: true
           payload: !lambda return id(last_summary_json);
       - script.execute: poll_s4_slow   # final lifetime distance
+      - delay: 300ms
+      - script.execute: publish_sensors
 
   # Spec p.5: RESET = like the power button on the monitor. A running
   # session is closed first so the summary isn't lost. Our copies of the
@@ -302,6 +348,7 @@ script:
           id(s4_watts) = 0;
           id(s4_stroke_avg_25ms) = 0;
           id(s4_stroke_pull_25ms) = 0;
+      - script.execute: publish_sensors
 
   # All live values bundled incl. the session ID - for Telegraf/InfluxDB,
   # so the ID is attached to the data point as a tag.
@@ -341,6 +388,7 @@ interval:
             id(sess_spm_sum)   += id(s4_stroke_rate);
             id(sess_samples)   += 1;
             id(publish_live_json).execute();
+            id(publish_sensors).execute();
           }
 
           // activity timeout -> end the session (safety net; normally the
@@ -352,16 +400,18 @@ interval:
 
   # Link supervision: the S4 sends PING every second while idle.
   # 10 s of silence = link dead -> redo the handshake.
+  # Logged once on loss (the monitor may simply be switched off for hours),
+  # the handshake retry itself stays silent; _WR_ logs the recovery.
   - interval: 5s
     then:
-      - if:
-          condition:
-            lambda: return (millis() - id(last_rx_ms)) > 10000;
-          then:
-            - logger.log:
-                level: WARN
-                format: "No data from S4 for >10 s, redoing handshake"
-            - script.execute: s4_handshake
+      - lambda: |-
+          if (millis() - id(last_rx_ms) > 10000) {
+            if (id(link_ok)) {
+              ESP_LOGW("s4", "No data from S4 for >10 s (switched off?), retrying handshake every 5 s");
+              id(link_ok) = false;
+            }
+            id(s4_handshake).execute();
+          }
 
   # Receive and parse
   - interval: 100ms
@@ -399,20 +449,20 @@ interval:
               continue;
             }
             if (line == "_WR_") {
-              // handshake done: read everything once so HA shows current
-              // values, then stay quiet until a session starts
-              id(poll_s4).execute();
-              id(poll_s4_slow).execute();
+              if (!id(link_ok)) ESP_LOGI("s4", "S4 link up");
+              id(link_ok) = true;
+              id(initial_poll).execute();
               continue;
             }
             if (line == "PING") {
               // Sent only while no rowing occurs. The S4 keeps showing the
               // last stroke's speed/rate/watts, we'd rather show zeros.
-              if (millis() - id(last_activity_ms) > 2000) {
+              if (!id(rowing_idle) && millis() - id(last_activity_ms) > 2000) {
                 id(rowing_idle) = true;
                 id(s4_speed_cms) = 0;
                 id(s4_stroke_rate) = 0;
                 id(s4_watts) = 0;
+                id(publish_sensors).execute();
               }
               continue;
             }
@@ -462,7 +512,7 @@ sensor:
     unit_of_measurement: "m"
     accuracy_decimals: 0
     lambda: return id(s4_distance_m);
-    update_interval: 1s
+    update_interval: never
 
   - platform: template
     name: "WaterRower Speed"
@@ -471,7 +521,7 @@ sensor:
     unit_of_measurement: "m/s"
     accuracy_decimals: 2
     lambda: return id(s4_speed_cms) / 100.0f;
-    update_interval: 1s
+    update_interval: never
 
   - platform: template
     name: "WaterRower Stroke Rate"
@@ -480,7 +530,7 @@ sensor:
     unit_of_measurement: "spm"
     accuracy_decimals: 0
     lambda: return id(s4_stroke_rate);
-    update_interval: 1s
+    update_interval: never
 
   - platform: template
     name: "WaterRower Strokes"
@@ -488,7 +538,7 @@ sensor:
     state_topic: waterrower/strokes
     accuracy_decimals: 0
     lambda: return id(s4_strokes);
-    update_interval: 1s
+    update_interval: never
 
   # Spec p.20: (stroke_average - stroke_pull) * 1.25 = ratio display.
   # Check against the "ratio" value on the display.
@@ -500,7 +550,7 @@ sensor:
     lambda: |-
       if (id(s4_stroke_pull_25ms) <= 0) return 0.0f;
       return (id(s4_stroke_avg_25ms) - id(s4_stroke_pull_25ms)) * 1.25f;
-    update_interval: 1s
+    update_interval: never
 
   - platform: template
     name: "WaterRower Pull Time"
@@ -508,7 +558,7 @@ sensor:
     unit_of_measurement: "s"
     accuracy_decimals: 2
     lambda: return id(s4_stroke_pull_25ms) * 0.025f;
-    update_interval: 1s
+    update_interval: never
 
   - platform: template
     name: "WaterRower Duration"
@@ -518,7 +568,7 @@ sensor:
     accuracy_decimals: 0
     device_class: duration
     lambda: return id(s4_elapsed_s);
-    update_interval: 1s
+    update_interval: never
 
   - platform: template
     name: "WaterRower Watts"
@@ -527,7 +577,7 @@ sensor:
     unit_of_measurement: "W"
     accuracy_decimals: 0
     lambda: return id(s4_watts);
-    update_interval: 1s
+    update_interval: never
 
   - platform: template
     name: "WaterRower Total Distance"
@@ -537,7 +587,7 @@ sensor:
     accuracy_decimals: 0
     state_class: total_increasing
     lambda: return id(s4_total_distance_m);
-    update_interval: 10s
+    update_interval: never
 
   - platform: template
     name: "WaterRower Session Avg Speed"
@@ -547,7 +597,7 @@ sensor:
     lambda: |-
       if (!id(sess_samples)) return 0.0f;
       return id(sess_speed_sum) / id(sess_samples) / 100.0f;
-    update_interval: 2s
+    update_interval: never
 
   - platform: template
     name: "WaterRower Session Avg Stroke Rate"
@@ -557,7 +607,7 @@ sensor:
     lambda: |-
       if (!id(sess_samples)) return 0.0f;
       return id(sess_spm_sum) / id(sess_samples);
-    update_interval: 2s
+    update_interval: never
 
   # - platform: template
   #   name: "WaterRower Heart Rate"
@@ -566,7 +616,7 @@ sensor:
   #   unit_of_measurement: "bpm"
   #   accuracy_decimals: 0
   #   lambda: return id(s4_heart_rate);
-  #   update_interval: 1s
+  #   update_interval: never   # and add id(wr_heart_rate).update() to publish_sensors
 
 binary_sensor:
   - platform: template
@@ -584,7 +634,7 @@ text_sensor:
     state_topic: waterrower/firmware_version
     entity_category: diagnostic
     lambda: return {std::string("${version}")};
-    update_interval: 60s
+    update_interval: never   # published on MQTT connect (retained)
 
   - platform: version
     name: "ESPHome Version"
@@ -593,7 +643,7 @@ text_sensor:
   - platform: template
     name: "WaterRower Duration (hh:mm:ss)"
     id: wr_elapsed_formatted
-    update_interval: 1s
+    update_interval: never
     lambda: |-
       int total = (int) id(s4_elapsed_s);
       char buf[16];
@@ -605,7 +655,7 @@ text_sensor:
     name: "WaterRower 500m Split"
     id: wr_split
     state_topic: waterrower/split_500m
-    update_interval: 1s
+    update_interval: never
     lambda: |-
       if (id(s4_speed_cms) <= 0) return {std::string("--:--")};
       int split = (int) (500.0f / (id(s4_speed_cms) / 100.0f));
@@ -618,19 +668,19 @@ text_sensor:
     id: wr_session_id
     state_topic: waterrower/session_id
     lambda: return {id(session_id)};
-    update_interval: 1s
+    update_interval: never
 
   - platform: template
     name: "WaterRower Last Session"
     id: wr_last_summary
     lambda: return {id(last_summary_json)};
-    update_interval: 5s
+    update_interval: never
 
   - platform: template
     name: "WaterRower S4 Raw Data"
     id: wr_raw_debug
     lambda: return {id(s4_last_raw_line)};
-    update_interval: 1s
+    update_interval: never
 
 number:
   # Minutes without a stroke after which a session ends on its own.

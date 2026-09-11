@@ -89,6 +89,10 @@ the YAML.
 - Publishes every value individually over MQTT, plus bundled as JSON on
   `waterrower/live` (with the session ID in the payload). At session end a
   retained summary goes out on `waterrower/session/last`.
+- Entities and MQTT topics are published event-driven: once per second
+  during a workout, once after the handshake, when the S4 goes idle and
+  after a session ends or a reset. While idle nothing is sent and the log
+  stays quiet; a lost link is logged once, not every retry.
 - Serves a local web UI at `http://esphome-waterrower.local/`.
 
 ## Protocol
