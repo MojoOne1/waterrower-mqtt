@@ -15,8 +15,8 @@ const cache = new Map();   // session_id -> {session, samples}
 const I18N = {
   de: {
     locale: "de-DE",
-    connecting: "verbinde …", connOff: "nicht verbunden", connOn: "verbunden", connLive: "Aufzeichnung läuft",
-    connLost: "Verbindung verloren, versuche erneut …",
+    connecting: "MQTT: verbinde …", connOff: "MQTT nicht verbunden", connOn: "MQTT verbunden", connLive: "Aufzeichnung läuft",
+    connLost: "MQTT-Verbindung verloren, versuche erneut …",
     s4Unknown: "Ergometer: unbekannt", s4Off: "Ergometer aus", s4On: "Ergometer an", s4Usb: "Ergometer verbunden",
     settingsTitle: "Verbindung zum MQTT-Broker",
     labelHost: "Adresse", labelPort: "Port", labelUser: "Benutzer", labelPassword: "Passwort", labelPrefix: "Topic-Präfix",
@@ -45,8 +45,8 @@ const I18N = {
   },
   en: {
     locale: "en-GB",
-    connecting: "connecting …", connOff: "not connected", connOn: "connected", connLive: "recording",
-    connLost: "Connection lost, retrying …",
+    connecting: "MQTT: connecting …", connOff: "MQTT not connected", connOn: "MQTT connected", connLive: "recording",
+    connLost: "MQTT connection lost, retrying …",
     s4Unknown: "Ergometer: unknown", s4Off: "Ergometer off", s4On: "Ergometer on", s4Usb: "Ergometer connected",
     settingsTitle: "MQTT broker connection",
     labelHost: "Address", labelPort: "Port", labelUser: "Username", labelPassword: "Password", labelPrefix: "Topic prefix",
