@@ -478,6 +478,11 @@ Under **Konto / Account**:
    address, into their tracker under *Arena*. Within a few seconds the
    arena header shows them as online.
 
+`ARENA_URL` and `ARENA_TOKEN` can pre-fill that form from the tracker's
+compose file, exactly like the `MQTT_*` variables do: they are defaults,
+and anything saved through the form lands in `data/settings.json` and wins
+from then on. Pick one or the other rather than setting both.
+
 Lane colours are handed out automatically and are used consistently for
 that athlete – in the live tiles, the charts, the lanes and the tables.
 
@@ -601,6 +606,18 @@ match: the `VERSION` file at the repo root and `substitutions.version` in
   e.g. with a smart plug.
 
 ## Open items
+
+Arena (see the [alpha note](#arena-multiplayer)):
+
+- A race banner in the tracker, so the countdown and the lanes are visible
+  at the machine instead of only on a phone next to it
+- Excel export, the way the tracker has it – the arena only does CSV per
+  session
+- A backup button for `arena.db`; right now copying the file is the plan
+- More than one race at a time, and a race that survives a restart of the
+  server (today it is marked aborted on start-up)
+
+Firmware and tracker:
 
 - Verify the ratio and watts registers against the display
 - Workout presets from Home Assistant (`WSI`/`WSU` commands)
