@@ -122,11 +122,11 @@ a:hover { color: var(--accent); }
 
 /* --- Header --------------------------------------------------------- */
 .top {
-  display: flex; justify-content: space-between; align-items: center;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem;
   padding: 1rem 1.5rem 0.6rem;
   max-width: 1100px; margin: 0 auto;
 }
-.top-right { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
+.top-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--paper); }
 .seg button { border: 0; border-radius: 0; padding: 0.25rem 0.55rem; font-size: 0.75rem; line-height: 1.25; color: var(--muted); background: none; }
 .seg button + button { border-left: 1px solid var(--line); }
@@ -201,6 +201,7 @@ button.primary:hover { filter: brightness(1.1); color: #fff; }
   grid-template-columns: 1fr auto;
   grid-template-areas: "lbl unit" "val val";
   align-items: end;
+  column-gap: 0.6rem;
   min-height: 92px;
   box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.28), inset 0 -1px 0 rgba(255, 255, 255, 0.12);
   transition: filter 0.3s;
@@ -293,7 +294,24 @@ canvas {
 .foot a { color: inherit; }
 
 @media (max-width: 760px) {
-  .work { grid-template-columns: 1fr; }
+  .work { grid-template-columns: 1fr; gap: 1.4rem; }
   .cell .val { font-size: 2rem; }
   .cell .val.big { font-size: 2.8rem; }
+}
+
+@media (max-width: 520px) {
+  .top, .settings, .monitor, .work, .foot { padding-left: 0.9rem; padding-right: 0.9rem; }
+  h1 { font-size: 1.05rem; }
+  .lcd { padding: 10px; gap: 8px; border-radius: 12px; }
+  .cell { min-height: 74px; padding: 0.5rem 0.7rem 0.4rem; column-gap: 0.35rem; }
+  .cell .lbl, .cell .unit { font-size: 0.62rem; }
+  .cell .val { font-size: 1.7rem; }
+  .cell .val.big { font-size: 2.2rem; }
+  .facts { grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 0.6rem 0.9rem; padding: 0.8rem; }
+  .facts dd { font-size: 1rem; }
+  .facts div.lead dd { font-size: 1.3rem; }
+  figure { margin-bottom: 1rem; }
+  figcaption { flex-wrap: wrap; gap: 0.2rem; }
+  .cmp-table { font-size: 0.8rem; }
+  .cmp-table th, .cmp-table td { padding: 0.35rem 0.35rem; }
 }

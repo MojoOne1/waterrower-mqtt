@@ -409,8 +409,19 @@ function renderTrend() {
 
 function setupCanvas(canvas) {
   const dpr = window.devicePixelRatio || 1;
-  const H = Number(canvas.getAttribute("height"));
   const W = canvas.clientWidth;
+  // The height attribute is the desktop maximum, but it gets overwritten
+  // with device pixels below - so remember it on first use. Reading it
+  // back instead multiplied the height by the pixel ratio on every
+  // redraw, which is what stretched the charts on phones.
+  if (!canvas.dataset.baseHeight) canvas.dataset.baseHeight = canvas.getAttribute("height");
+  const maxH = Number(canvas.dataset.baseHeight);
+  // On a narrow screen the chart keeps its aspect ratio instead of
+  // turning into a tall box.
+  const aspect = Number(canvas.dataset.aspect || 0);
+  const H = aspect
+    ? Math.round(Math.min(maxH, Math.max(Number(canvas.dataset.minHeight || maxH), W / aspect)))
+    : maxH;
   canvas.width = W * dpr; canvas.height = H * dpr;
   canvas.style.height = H + "px";
   const ctx = canvas.getContext("2d"); ctx.scale(dpr, dpr);
@@ -435,13 +446,17 @@ function drawLine(canvas, series, opts = {}) {
     ctx.clearRect(0, 0, W, H);
     ctx.strokeStyle = THEME.grid; ctx.lineWidth = 1;
     ctx.fillStyle = THEME.muted; ctx.font = "11px system-ui"; ctx.textAlign = "right";
-    for (let i = 0; i <= 4; i++) {
-      const y = yMin + ((yMax - yMin) / 4) * i;
+    const rows = H < 150 ? 3 : 4;
+    for (let i = 0; i <= rows; i++) {
+      const y = yMin + ((yMax - yMin) / rows) * i;
       ctx.beginPath(); ctx.moveTo(pad.l, sy(y)); ctx.lineTo(W - pad.r, sy(y)); ctx.stroke();
       ctx.fillText(opts.yFmt ? opts.yFmt(y) : y, pad.l - 6, sy(y) + 4);
     }
     ctx.textAlign = "center";
-    const step = xMax > 1800 ? 600 : xMax > 600 ? 300 : xMax > 120 ? 60 : 30;
+    // As many time labels as fit without colliding, on a round step.
+    const maxLabels = Math.max(2, Math.floor((W - pad.l - pad.r) / 58));
+    const steps = [15, 30, 60, 120, 300, 600, 900, 1800, 3600];
+    const step = steps.find((s) => xMax / s <= maxLabels) || 3600;
     for (let x = 0; x <= xMax; x += step) ctx.fillText(fmtDur(x), sx(x), H - 6);
 
     for (const s of series) {
@@ -501,8 +516,9 @@ function drawBars(canvas, items, opts = {}) {
   const base = (hi = -1) => {
     ctx.clearRect(0, 0, W, H);
     ctx.strokeStyle = THEME.grid; ctx.lineWidth = 1; ctx.fillStyle = THEME.muted; ctx.font = "11px system-ui"; ctx.textAlign = "right";
-    for (let i = 0; i <= 3; i++) {
-      const v = (max / 3) * i;
+    const rows = H < 120 ? 2 : 3;
+    for (let i = 0; i <= rows; i++) {
+      const v = (max / rows) * i;
       ctx.beginPath(); ctx.moveTo(pad.l, sy(v)); ctx.lineTo(W - pad.r, sy(v)); ctx.stroke();
       ctx.fillText(Math.round(v), pad.l - 6, sy(v) + 4);
     }
@@ -535,7 +551,11 @@ function drawBars(canvas, items, opts = {}) {
   };
 }
 
-window.addEventListener("resize", () => { if (selected) selectSession(selected); renderCompare(); });
+let resizeTimer;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);           // chart heights depend on width now
+  resizeTimer = setTimeout(redrawCharts, 200);
+});
 
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", async () => {
   if (theme !== "auto") return;

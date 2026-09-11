@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WaterRower</title>
+<title>WaterRower Tracker</title>
 <link rel="stylesheet" href="/static/style.css">
 <!-- Apply a stored theme before first paint, otherwise a dark choice on a
      light system flashes light for a frame. -->
@@ -12,8 +12,8 @@
 <body>
 
 <header class="top">
-  <h1>WaterRower</h1>
-  <div class="top-right">
+  <h1>WaterRower Tracker</h1>
+  <div class="top-row">
     <div class="seg lang" role="group" aria-label="Language">
       <button type="button" data-lang="de">DE</button>
       <button type="button" data-lang="en">EN</button>
@@ -97,11 +97,11 @@
 
     <figure>
       <figcaption><span data-i18n="chartSpeed"></span><span class="readout" id="ro-speed"></span></figcaption>
-      <canvas id="ch-speed" height="200"></canvas>
+      <canvas id="ch-speed" height="200" data-aspect="3.2" data-min-height="120"></canvas>
     </figure>
     <figure>
       <figcaption><span data-i18n="chartSpm"></span><span class="readout" id="ro-spm"></span></figcaption>
-      <canvas id="ch-spm" height="120"></canvas>
+      <canvas id="ch-spm" height="120" data-aspect="5" data-min-height="80"></canvas>
     </figure>
   </section>
 
@@ -113,7 +113,7 @@
     <ul class="legend" id="legend"></ul>
     <figure>
       <figcaption><span data-i18n="chartCmp"></span><span class="readout" id="ro-cmp"></span></figcaption>
-      <canvas id="ch-cmp" height="220"></canvas>
+      <canvas id="ch-cmp" height="220" data-aspect="3" data-min-height="140"></canvas>
     </figure>
     <table class="cmp-table" id="cmp-table"></table>
   </section>
@@ -128,7 +128,7 @@
     </div>
     <figure>
       <figcaption><span data-i18n="chartTrend"></span><span class="readout" id="ro-trend"></span></figcaption>
-      <canvas id="ch-trend" height="150"></canvas>
+      <canvas id="ch-trend" height="150" data-aspect="4.5" data-min-height="100"></canvas>
     </figure>
   </section>
 </main>
