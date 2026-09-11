@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -218,9 +218,21 @@ def export_all_xlsx():
 
 # --- UI --------------------------------------------------------------------
 
+ASSET_TAG = f"{APP_VERSION}-{GIT_COMMIT}"
+
+
 @app.get("/")
 def index():
-    return FileResponse(STATIC / "index.html")
+    """Serve index.html uncached, with a per-release query on its assets.
+
+    Without this a browser can end up with a new index.html and a cached
+    app.js from the previous release, which silently breaks whatever the
+    new markup expects the script to wire up.
+    """
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    for asset in ("style.css", "app.js"):
+        html = html.replace(f"/static/{asset}", f"/static/{asset}?v={ASSET_TAG}")
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache, must-revalidate"})
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
