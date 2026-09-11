@@ -253,6 +253,7 @@ Pitfalls that cost us time:
 | `waterrower/watts` | Watts |
 | `waterrower/total_distance` | Lifetime distance in m |
 | `waterrower/split_500m` | 500m split as `m:ss` |
+| `waterrower/split_500m_s` | 500m split in seconds (numeric, for graphs) |
 | `waterrower/session_active` | `ON` / `OFF` |
 | `waterrower/session_id` | Current session ID |
 | `waterrower/live` | All values as JSON, 1×/s during a workout |

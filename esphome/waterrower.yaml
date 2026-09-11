@@ -243,6 +243,7 @@ script:
       - lambda: |-
           id(wr_distance).update();
           id(wr_speed).update();
+          id(wr_split_s).update();
           id(wr_stroke_rate).update();
           id(wr_strokes).update();
           id(wr_ratio).update();
@@ -599,6 +600,20 @@ sensor:
     unit_of_measurement: "m/s"
     accuracy_decimals: 2
     lambda: return id(s4_speed_cms) / 100.0f;
+    update_interval: never
+
+  # Numeric twin of the "500m Split" text sensor, so it can be graphed.
+  - platform: template
+    name: "500m Split (s)"
+    id: wr_split_s
+    state_topic: waterrower/split_500m_s
+    unit_of_measurement: "s"
+    device_class: duration
+    state_class: measurement
+    accuracy_decimals: 0
+    lambda: |-
+      if (id(s4_speed_cms) <= 0) return NAN;
+      return 500.0f / (id(s4_speed_cms) / 100.0f);
     update_interval: never
 
   - platform: template
