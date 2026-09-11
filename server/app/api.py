@@ -305,6 +305,20 @@ def export_csv(session_id: int, _: dict = Depends(auth.current_athlete)):
 
 # --- Live ------------------------------------------------------------------
 
+@router.post("/api/session/end")
+async def end_my_session(athlete: dict = Depends(auth.current_athlete)):
+    """Close my own session on my own monitor, from wherever I am standing.
+
+    Your session only - nobody gets to end somebody else's row. The monitor
+    keeps its numbers; this is the tracker's "End session" button reachable
+    from the phone propped up on the ergometer.
+    """
+    sent = await hub.command(athlete["id"], "end")
+    if not sent:
+        raise HTTPException(503, "Your tracker is not connected")
+    return {"ok": True}
+
+
 @router.get("/api/live")
 def live(_: dict = Depends(auth.current_athlete)):
     return {

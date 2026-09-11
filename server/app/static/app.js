@@ -40,6 +40,10 @@ const I18N = {
 
     arenaNow: "Gerade auf dem Wasser", arenaWeek: "Diese Woche",
     nobodyRowing: "Gerade rudert niemand.",
+    endSession: "Einheit beenden",
+    confirmEnd: "Deine Einheit jetzt beenden? Der Monitor behält seine Anzeige.",
+    endSent: "Wird beendet …",
+    endFailed: "Beenden fehlgeschlagen",
     offline: "offline", idle: "bereit", rowing: "rudert",
     lastSeen: (s) => `zuletzt ${s}`,
 
@@ -120,6 +124,10 @@ const I18N = {
 
     arenaNow: "On the water now", arenaWeek: "This week",
     nobodyRowing: "Nobody is rowing right now.",
+    endSession: "End session",
+    confirmEnd: "End your session now? The monitor keeps its display.",
+    endSent: "Ending …",
+    endFailed: "Could not end the session",
     offline: "offline", idle: "ready", rowing: "rowing",
     lastSeen: (s) => `last seen ${s}`,
 

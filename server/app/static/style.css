@@ -204,6 +204,7 @@ form.card label { display: flex; flex-direction: column; gap: 0.25rem; font-size
 .mini .lbl { display: block; font-size: 0.7rem; color: var(--muted); }
 .mini .val { display: block; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
 .cards .empty { grid-column: 1 / -1; }
+button.end-session { margin-top: 0.7rem; width: 100%; }
 .totals { overflow-x: auto; }
 
 /* --- Race ------------------------------------------------------------- */

@@ -93,7 +93,7 @@ device controls.
 | Path | Purpose |
 |---|---|
 | `VERSION` | Project version, mirrored in the firmware's `substitutions.version` (see [Versioning](#versioning)) |
-| `.github/workflows/docker-publish.yml` | Builds and publishes the tracker image on every push |
+| `.github/workflows/docker-publish.yml` | Builds and publishes the tracker and arena images on every push |
 | `docs/` | Screenshots used in this README |
 
 ### How they fit together
@@ -512,13 +512,18 @@ seconds. From the gun the view shows one lane per rower with distance,
 split, stroke rate, watts, the gap in metres *and* in seconds, and – in a
 distance race – the projected time still to go.
 
-When the race is over the arena closes each participant's session again,
-the mirror image of the reset before the gun – so the recorded session is
-the race, and its summary, averages and personal bests land straight away
-instead of whenever the S4's own activity timeout gets round to it. This
-one does *not* zero the monitor: the numbers stay on the display to be
-read at the finish. Set `ARENA_END_AT_FINISH=0` to keep rowing on the same
-session instead.
+Crossing the line does not end your session – whether you are done is your
+call, not the race's, and after a hard 2 km most people row it out for a
+while. **End session** in the arena closes it when you say so: on your own
+tile in the Arena view and next to the race result, so the phone propped up
+on the ergometer can do what the tracker's own button does. It closes the
+session and leaves the display alone, so the numbers are still there to be
+read; zeroing happens at the next start. It only ever ends your own session.
+
+Left alone, the S4 closes the session itself once it has been idle long
+enough – ending it just means the summary, the averages and any personal
+best land now rather than then. `ARENA_END_AT_FINISH=1` hands that decision
+to the race instead and closes everybody's session at the finish.
 
 A lane does not have to be a live person. **Ghost** adds any recorded
 session as an opponent, replayed against the race clock: row against a
@@ -549,7 +554,7 @@ from different people – can be overlaid on one chart.
 | `ARENA_SECURE_COOKIES` | `1` | Keep at `1` behind Cloudflare; `0` only for `http://localhost` |
 | `ARENA_SESSION_DAYS` | `30` | How long a browser stays signed in |
 | `ARENA_COUNTDOWN` | `10` | Seconds between the start and the gun |
-| `ARENA_END_AT_FINISH` | `1` | Close each participant's session when the race ends (the display is left alone) |
+| `ARENA_END_AT_FINISH` | `0` | Let the finish close everybody's session instead of leaving it to each rower |
 | `ARENA_FINISH_GRACE` | `600` | Seconds a distance race waits for stragglers after the winner |
 | `DB_PATH` | `/data/arena.db` | SQLite file |
 
@@ -564,6 +569,7 @@ Everything needs a session cookie; the uplink uses its own token.
 | `GET /api/athletes`, `POST /api/athletes` | Athletes; creating one returns an invitation code (admin) |
 | `POST /api/athletes/{id}/tokens` | Mint a device token – returned once, stored hashed |
 | `GET /api/live` | Who is rowing right now, and the running race |
+| `POST /api/session/end` | Close my own session on my own monitor |
 | `GET /api/sessions`, `/api/sessions/{id}` | All athletes' sessions, one with its samples |
 | `GET /api/records`, `/api/totals`, `/api/h2h` | Leaderboards, totals, head to head |
 | `POST /api/race`, `/api/race/join`, `/api/race/ready`, `/api/race/ghost`, `/api/race/start`, `/api/race/finish` | Run a race |

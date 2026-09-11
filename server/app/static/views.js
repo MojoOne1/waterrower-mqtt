@@ -95,10 +95,29 @@ function liveCard(athlete, live) {
     cell("W", fmtInt(v.watts));
     cell(t("colTime"), fmtDur(v.t));
     card.appendChild(grid);
+    if (athlete.id === STATE.me.id) card.appendChild(endSessionButton());
   } else if (live.updated_at) {
     card.appendChild(el("p", "empty", t("lastSeen", fmtAgo(live.updated_at))));
   }
   return card;
+}
+
+/* Your own session, ended from wherever you are - the tracker's button
+   within reach of the phone on the ergometer. Never anybody else's. */
+function endSessionButton() {
+  const btn = el("button", "end-session", t("endSession"));
+  btn.onclick = async () => {
+    if (!confirm(t("confirmEnd"))) return;
+    btn.disabled = true;
+    try {
+      await api("/api/session/end", { method: "POST" });
+      btn.textContent = t("endSent");
+    } catch (err) {
+      btn.disabled = false;
+      alert(err.message || t("endFailed"));
+    }
+  };
+  return btn;
 }
 
 // --- Sessions -------------------------------------------------------------

@@ -418,11 +418,9 @@ class RaceEngine:
                 self.db.link_session_to_race(lane.session_id, r.id)
         self.db.set_race_state(r.id, "finished", finished_at=now)
 
-        # Close the session on each monitor, the mirror image of the reset
-        # before the gun. Without this the S4 keeps the session open until
-        # its own activity timeout, so the summary - and with it the
-        # averages and the personal bests - arrives minutes late and covers
-        # more than the race.
+        # Off unless asked for: ending somebody's session because the race
+        # is over takes the decision away from the person still rowing it
+        # out. They close it themselves, from the arena or their tracker.
         if config.END_AT_FINISH:
             for lane in r.lanes:
                 if lane.kind == "live":
