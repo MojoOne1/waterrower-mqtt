@@ -63,10 +63,17 @@ state = LiveState()
 
 
 def on_arena_command(cmd: str, _msg: dict) -> None:
-    """The arena asks for a reset before the gun so every monitor starts at
-    zero - the same thing the "End session" button does."""
+    """Both of these go out on the same topic the "End session" button uses.
+
+    The firmware treats the payload "reset" as close-and-zero and anything
+    else as close-only, which is exactly the distinction wanted here: zero
+    the monitor before the gun, but at the finish just close the session
+    and leave the numbers on the display to be read.
+    """
     if cmd == "reset":
         ingest.publish("cmd/end_session", "reset")
+    elif cmd == "end":
+        ingest.publish("cmd/end_session", "end")
 
 
 link = Uplink(db, load_settings(), on_command=on_arena_command)

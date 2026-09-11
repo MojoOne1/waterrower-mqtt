@@ -417,6 +417,17 @@ class RaceEngine:
             if lane.kind == "live" and lane.session_id:
                 self.db.link_session_to_race(lane.session_id, r.id)
         self.db.set_race_state(r.id, "finished", finished_at=now)
+
+        # Close the session on each monitor, the mirror image of the reset
+        # before the gun. Without this the S4 keeps the session open until
+        # its own activity timeout, so the summary - and with it the
+        # averages and the personal bests - arrives minutes late and covers
+        # more than the race.
+        if config.END_AT_FINISH:
+            for lane in r.lanes:
+                if lane.kind == "live":
+                    await self.hub.command(lane.athlete_id, "end", race_id=r.id)
+
         log.info("Race %s finished (%s)", r.id, reason)
         self._publish()
         self.hub.broadcast({"type": "race_result", "race": self.db.race(r.id)})

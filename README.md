@@ -512,6 +512,14 @@ seconds. From the gun the view shows one lane per rower with distance,
 split, stroke rate, watts, the gap in metres *and* in seconds, and – in a
 distance race – the projected time still to go.
 
+When the race is over the arena closes each participant's session again,
+the mirror image of the reset before the gun – so the recorded session is
+the race, and its summary, averages and personal bests land straight away
+instead of whenever the S4's own activity timeout gets round to it. This
+one does *not* zero the monitor: the numbers stay on the display to be
+read at the finish. Set `ARENA_END_AT_FINISH=0` to keep rowing on the same
+session instead.
+
 A lane does not have to be a live person. **Ghost** adds any recorded
 session as an opponent, replayed against the race clock: row against a
 friend who is not at home, or against your own best.
@@ -541,6 +549,7 @@ from different people – can be overlaid on one chart.
 | `ARENA_SECURE_COOKIES` | `1` | Keep at `1` behind Cloudflare; `0` only for `http://localhost` |
 | `ARENA_SESSION_DAYS` | `30` | How long a browser stays signed in |
 | `ARENA_COUNTDOWN` | `10` | Seconds between the start and the gun |
+| `ARENA_END_AT_FINISH` | `1` | Close each participant's session when the race ends (the display is left alone) |
 | `ARENA_FINISH_GRACE` | `600` | Seconds a distance race waits for stragglers after the winner |
 | `DB_PATH` | `/data/arena.db` | SQLite file |
 

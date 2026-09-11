@@ -18,7 +18,10 @@ Messages from the tracker
 Messages to the tracker
 
     welcome   {athlete, server_time, known}
-    cmd       {cmd: "reset", race_id}  zero the monitor before the gun
+    cmd       {cmd: "reset", race_id}  close the session and zero the
+                                       monitor, before the gun
+              {cmd: "end", race_id}    close the session, leave the display
+                                       alone, at the finish
     ack       {session, stored}
     ping      {}
 """

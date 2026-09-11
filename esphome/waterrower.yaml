@@ -1,7 +1,7 @@
 # Keep in sync with the VERSION file at the repo root; releases are
 # tagged v<version> in git, which is how a firmware maps to a commit.
 substitutions:
-  version: "1.7.0-alpha.2"
+  version: "1.7.0-alpha.3"
 
 esphome:
   name: esphome-waterrower

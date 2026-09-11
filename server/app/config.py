@@ -24,6 +24,12 @@ SESSION_DAYS = float(os.environ.get("ARENA_SESSION_DAYS", "30"))
 # tracker pings every 20 s, so this tolerates one lost ping.
 UPLINK_TIMEOUT_S = float(os.environ.get("ARENA_UPLINK_TIMEOUT", "50"))
 
+# Close each participant's session when the race is over, so the recorded
+# session is the race rather than everything until the monitor times out.
+# Unlike the reset before the gun this leaves the display alone - people
+# want to read their numbers at the finish.
+END_AT_FINISH = os.environ.get("ARENA_END_AT_FINISH", "1") != "0"
+
 # Race pacing.
 COUNTDOWN_S = int(os.environ.get("ARENA_COUNTDOWN", "10"))
 TICK_HZ = float(os.environ.get("ARENA_TICK_HZ", "2"))
