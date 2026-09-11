@@ -31,12 +31,18 @@ button:hover { border-color: var(--text); }
 a { text-decoration: underline; text-underline-offset: 3px; }
 :focus-visible { outline: 2px solid var(--ash); outline-offset: 2px; }
 
-/* --- Kopf ----------------------------------------------------------- */
+/* --- Header --------------------------------------------------------- */
 .top {
   display: flex; justify-content: space-between; align-items: center;
   padding: 1rem 1.5rem 0.5rem;
   max-width: 1100px; margin: 0 auto;
 }
+.top-right { display: flex; align-items: center; gap: 0.6rem; }
+.lang { display: flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.lang button { border: 0; border-radius: 0; padding: 0.25rem 0.5rem; font-size: 0.75rem; color: var(--muted); }
+.lang button + button { border-left: 1px solid var(--line); }
+.lang button:hover { color: var(--text); }
+.lang button.active { background: var(--housing); color: #fff; }
 .conn { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--muted); border: 1px solid transparent; padding: 0.3rem 0.6rem; }
 .conn:hover, .conn[aria-expanded="true"] { border-color: var(--line); }
 .conn .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
@@ -45,7 +51,7 @@ a { text-decoration: underline; text-underline-offset: 3px; }
 @keyframes pulse { 50% { opacity: 0.3; } }
 @media (prefers-reduced-motion: reduce) { .conn.live .dot { animation: none; } }
 
-/* --- Einstellungen -------------------------------------------------- */
+/* --- Settings ------------------------------------------------------- */
 .settings { max-width: 1100px; margin: 0.5rem auto 0; padding: 0 1.5rem; }
 .settings form { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.2rem; }
 .settings h2 { margin-bottom: 0.8rem; }
@@ -63,7 +69,7 @@ button.primary { background: var(--housing); color: #fff; border-color: var(--ho
 button.primary:hover { background: #000; }
 @media (max-width: 760px) { .fields { grid-template-columns: 1fr 1fr; } }
 
-/* --- Monitor (das Herzstück) ------------------------------------------- */
+/* --- Monitor (the centrepiece) ----------------------------------------- */
 .monitor {
   max-width: 1100px; margin: 0.5rem auto 0; padding: 0 1.5rem;
 }
@@ -109,7 +115,7 @@ button.primary:hover { background: #000; }
 .session-line { margin: 0.6rem 0 0; font-size: 0.85rem; color: var(--muted); }
 .session-line strong { color: var(--text); font-weight: 600; }
 
-/* --- Arbeitsbereich -------------------------------------------------- */
+/* --- Work area ------------------------------------------------------- */
 .work {
   max-width: 1100px; margin: 1.5rem auto 3rem; padding: 0 1.5rem;
   display: grid; grid-template-columns: 260px 1fr; gap: 2rem;
@@ -128,7 +134,7 @@ button.primary:hover { background: #000; }
 .list li .spark { grid-column: 1 / -1; width: 100%; height: 22px; display: block; background: none; border-radius: 0; margin-top: 0.15rem; }
 .list li:hover { background: var(--paper); }
 .list li.sel { border-left-color: var(--ash); background: var(--paper); }
-.list li.cmp::after { content: "im Vergleich"; grid-column: 1 / -1; font-size: 0.72rem; color: var(--ash); }
+.list li.cmp::after { content: attr(data-cmp-label); grid-column: 1 / -1; font-size: 0.72rem; color: var(--ash); }
 .list li .when { font-weight: 600; }
 .list li .dist { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .list li .sub { grid-column: 1 / -1; color: var(--muted); font-size: 0.8rem; }

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,25 +10,31 @@
 
 <header class="top">
   <h1>WaterRower</h1>
-  <button class="conn" id="conn" type="button" aria-expanded="false" aria-controls="settings">
-    <span class="dot"></span><span id="conn-text">verbinde …</span>
-  </button>
+  <div class="top-right">
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="de">DE</button>
+      <button type="button" data-lang="en">EN</button>
+    </div>
+    <button class="conn" id="conn" type="button" aria-expanded="false" aria-controls="settings">
+      <span class="dot"></span><span id="conn-text" data-i18n="connecting"></span>
+    </button>
+  </div>
 </header>
 
 <section class="settings" id="settings" hidden>
   <form id="settings-form">
-    <h2>Verbindung zum MQTT-Broker</h2>
+    <h2 data-i18n="settingsTitle"></h2>
     <div class="fields">
-      <label>Adresse <input name="host" required placeholder="10.0.0.5 oder broker.local"></label>
-      <label>Port <input name="port" type="number" min="1" max="65535" value="1883"></label>
-      <label>Benutzer <input name="username" autocomplete="off" placeholder="optional"></label>
-      <label>Passwort <input name="password" type="password" autocomplete="new-password" placeholder="optional"></label>
-      <label>Topic-Präfix <input name="prefix" value="waterrower"></label>
+      <label><span data-i18n="labelHost"></span> <input name="host" required data-i18n-placeholder="phHost"></label>
+      <label><span data-i18n="labelPort"></span> <input name="port" type="number" min="1" max="65535" value="1883"></label>
+      <label><span data-i18n="labelUser"></span> <input name="username" autocomplete="off" data-i18n-placeholder="phOptional"></label>
+      <label><span data-i18n="labelPassword"></span> <input name="password" type="password" autocomplete="new-password" data-i18n-placeholder="phOptional"></label>
+      <label><span data-i18n="labelPrefix"></span> <input name="prefix" value="waterrower"></label>
     </div>
-    <p class="hint">Der Präfix muss zu <code>topic_prefix</code> in der ESPHome-Konfiguration passen.</p>
+    <p class="hint" data-i18n-html="settingsHint"></p>
     <div class="form-foot">
       <span class="form-msg" id="settings-msg"></span>
-      <button type="submit" class="primary">Verbinden</button>
+      <button type="submit" class="primary" data-i18n="btnConnect"></button>
     </div>
   </form>
 </section>
@@ -55,45 +61,45 @@
       <span class="unit">meters</span>
     </div>
   </div>
-  <p class="session-line" id="session-line">Warten auf Ruderschlag …</p>
+  <p class="session-line" id="session-line" data-i18n="waiting"></p>
 </section>
 
 <main class="work">
   <aside class="list">
-    <h2>Einheiten</h2>
+    <h2 data-i18n="sessionsTitle"></h2>
     <ul id="sessions"></ul>
-    <p class="empty" id="sessions-empty">Noch keine Einheit aufgezeichnet. Die erste erscheint hier, sobald du losruderst.</p>
+    <p class="empty" id="sessions-empty" data-i18n="sessionsEmpty"></p>
   </aside>
 
   <section class="detail" id="detail" hidden>
     <div class="detail-head">
       <h2 id="detail-title"></h2>
       <div class="actions">
-        <label class="cmp"><input type="checkbox" id="cmp-toggle"> vergleichen</label>
+        <label class="cmp"><input type="checkbox" id="cmp-toggle"> <span data-i18n="compare"></span></label>
         <a id="csv" href="#">CSV</a>
-        <button id="del" type="button">löschen</button>
+        <button id="del" type="button" data-i18n="delete"></button>
       </div>
     </div>
     <dl class="facts" id="facts"></dl>
 
     <figure>
-      <figcaption><span>Geschwindigkeit in m/s</span><span class="readout" id="ro-speed"></span></figcaption>
+      <figcaption><span data-i18n="chartSpeed"></span><span class="readout" id="ro-speed"></span></figcaption>
       <canvas id="ch-speed" height="200"></canvas>
     </figure>
     <figure>
-      <figcaption><span>Schlagfrequenz</span><span class="readout" id="ro-spm"></span></figcaption>
+      <figcaption><span data-i18n="chartSpm"></span><span class="readout" id="ro-spm"></span></figcaption>
       <canvas id="ch-spm" height="120"></canvas>
     </figure>
   </section>
 
   <section class="compare" id="compare" hidden>
     <div class="detail-head">
-      <h2>Vergleich</h2>
-      <button id="cmp-clear" type="button">Auswahl leeren</button>
+      <h2 data-i18n="compareTitle"></h2>
+      <button id="cmp-clear" type="button" data-i18n="clearSelection"></button>
     </div>
     <ul class="legend" id="legend"></ul>
     <figure>
-      <figcaption><span>Geschwindigkeit ab Start der jeweiligen Einheit</span><span class="readout" id="ro-cmp"></span></figcaption>
+      <figcaption><span data-i18n="chartCmp"></span><span class="readout" id="ro-cmp"></span></figcaption>
       <canvas id="ch-cmp" height="220"></canvas>
     </figure>
     <table class="cmp-table" id="cmp-table"></table>
@@ -101,11 +107,11 @@
 
   <section class="trend" id="trend" hidden>
     <div class="detail-head">
-      <h2>Alle Einheiten</h2>
+      <h2 data-i18n="allSessions"></h2>
       <span class="hint" id="trend-sum"></span>
     </div>
     <figure>
-      <figcaption><span>Distanz je Einheit</span><span class="readout" id="ro-trend"></span></figcaption>
+      <figcaption><span data-i18n="chartTrend"></span><span class="readout" id="ro-trend"></span></figcaption>
       <canvas id="ch-trend" height="150"></canvas>
     </figure>
   </section>

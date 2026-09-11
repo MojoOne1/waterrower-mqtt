@@ -1,4 +1,4 @@
-"""Hört auf die MQTT-Topics der ESPHome-Bridge und schreibt in die Datenbank."""
+"""Listens to the ESPHome bridge's MQTT topics and writes to the database."""
 
 import json
 import logging
@@ -13,7 +13,7 @@ log = logging.getLogger("mqtt")
 
 
 class LiveState:
-    """Letzter bekannter Zustand, für die Live-Ansicht."""
+    """Last known state, for the live view."""
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -66,7 +66,7 @@ class MqttIngest:
         self.configure(settings)
 
     def configure(self, settings: dict):
-        """Verbindung (neu) aufbauen. Wird auch vom Einstellungsformular genutzt."""
+        """(Re)build the connection. Also used by the settings form."""
         self.stop()
         self.settings = dict(settings)
         self.prefix = settings.get("prefix", "waterrower").rstrip("/")
@@ -86,14 +86,14 @@ class MqttIngest:
 
     def start(self):
         if not self.settings.get("host"):
-            self.last_error = "Keine Broker-Adresse konfiguriert"
+            self.last_error = "No broker address configured"
             return
         try:
             self.client.connect_async(self.settings["host"], int(self.settings.get("port", 1883)), keepalive=60)
             self.client.loop_start()
         except (OSError, ValueError) as e:
             self.last_error = str(e)
-            log.warning("MQTT-Verbindung fehlgeschlagen: %s", e)
+            log.warning("MQTT connection failed: %s", e)
 
     def stop(self):
         if self.client is not None:
@@ -109,18 +109,18 @@ class MqttIngest:
     def _on_connect(self, client, userdata, flags, reason_code, properties=None):
         if reason_code.is_failure:
             self.last_error = str(reason_code)
-            log.warning("MQTT abgelehnt: %s", reason_code)
+            log.warning("MQTT rejected: %s", reason_code)
             self.state.connected = False
             self.state.update()
             return
-        log.info("MQTT verbunden")
+        log.info("MQTT connected")
         self.last_error = ""
         self.state.connected = True
         client.subscribe(f"{self.prefix}/#")
         self.state.update()
 
     def _on_disconnect(self, client, userdata, flags, reason_code, properties=None):
-        log.warning("MQTT getrennt (%s)", reason_code)
+        log.warning("MQTT disconnected (%s)", reason_code)
         self.state.connected = False
         self.state.update()
 
@@ -144,7 +144,7 @@ class MqttIngest:
             elif topic == "split_500m":
                 self.state.update(split_500m=payload)
         except (ValueError, json.JSONDecodeError) as e:
-            log.debug("Ignoriere %s: %s (%s)", topic, payload[:60], e)
+            log.debug("Ignoring %s: %s (%s)", topic, payload[:60], e)
 
     def _handle_live(self, data: dict):
         sid = data.get("session_id")
@@ -166,7 +166,7 @@ class MqttIngest:
         self.db.close_session(sid, time.time(), data)
         self.state.session_active = False
         self.state.update()
-        log.info("Session abgeschlossen: %s", sid)
+        log.info("Session closed: %s", sid)
 
 
 def _num(s: str):

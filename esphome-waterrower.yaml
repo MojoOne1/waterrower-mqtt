@@ -54,10 +54,10 @@ usb_uart:
         debug: false
 
 ###############################################################################
-# Zustand
+# State
 ###############################################################################
 globals:
-  # --- Empfang ---
+  # --- Receive ---
   - id: s4_rx_buffer
     type: std::string
     restore_value: false
@@ -66,7 +66,7 @@ globals:
     type: std::string
     restore_value: false
     initial_value: '""'
-  - id: last_rx_ms              # letzte Zeile egal welcher Art (Verbindungsueberwachung)
+  - id: last_rx_ms              # last line of any kind (link supervision)
     type: uint32_t
     restore_value: false
     initial_value: "0"
@@ -75,12 +75,12 @@ globals:
     restore_value: false
     initial_value: "0"
 
-  # --- Messwerte (Adressen laut "Water Rower S4 S5 USB Protocol Iss 1.04") ---
+  # --- Readings (addresses per "Water Rower S4 S5 USB Protocol Iss 1.04") ---
   - id: s4_distance_m           # 057/058 distance_low/hi
     type: float
     restore_value: false
     initial_value: "0"
-  - id: s4_speed_cms            # 14A/14B m_s_low/hi_average (cm/s) - entspricht Display
+  - id: s4_speed_cms            # 14A/14B m_s_low/hi_average (cm/s) - matches the display
     type: float
     restore_value: false
     initial_value: "0"
@@ -92,11 +92,11 @@ globals:
     type: float
     restore_value: false
     initial_value: "0"
-  - id: s4_stroke_avg_25ms      # 142 stroke_average (Einheit: 25 ms)
+  - id: s4_stroke_avg_25ms      # 142 stroke_average (unit: 25 ms)
     type: float
     restore_value: false
     initial_value: "0"
-  - id: s4_stroke_pull_25ms     # 143 stroke_pull (Einheit: 25 ms)
+  - id: s4_stroke_pull_25ms     # 143 stroke_pull (unit: 25 ms)
     type: float
     restore_value: false
     initial_value: "0"
@@ -104,15 +104,15 @@ globals:
     type: float
     restore_value: false
     initial_value: "0"
-  - id: s4_total_distance_m     # 081/082 total_dis_low/hi (Lebenszeit-Zaehler)
+  - id: s4_total_distance_m     # 081/082 total_dis_low/hi (lifetime counter)
     type: float
     restore_value: false
     initial_value: "0"
-  - id: s4_watts                # 088/089 kcal_watts_low/hi - Skalierung UNGEPRUEFT
+  - id: s4_watts                # 088/089 kcal_watts_low/hi - scaling UNVERIFIED
     type: float
     restore_value: false
     initial_value: "0"
-  - id: s4_heart_rate           # 1A0 zone_hr_val - nur mit Brustgurt
+  - id: s4_heart_rate           # 1A0 zone_hr_val - chest strap only
     type: float
     restore_value: false
     initial_value: "0"
@@ -148,10 +148,10 @@ globals:
     initial_value: '""'
 
 ###############################################################################
-# Skripte
+# Scripts
 ###############################################################################
 script:
-  # Spec S.4: "USB" oeffnet die Kommunikation, Antwort "_WR_".
+  # Spec p.4: "USB" opens communication, reply "_WR_".
   - id: s4_handshake
     then:
       - uart.write:
@@ -162,24 +162,24 @@ script:
           id: s4_uart
           data: "IV?\r\n"
 
-  # Spec S.1: max. ein Paket pro 25 ms.
+  # Spec p.1: at most one packet per 25 ms.
   - id: poll_s4
     then:
       - uart.write:
           id: s4_uart
-          data: "IRD057\r\n"    # Distanz (angezeigt)
+          data: "IRD057\r\n"    # distance (displayed)
       - delay: 30ms
       - uart.write:
           id: s4_uart
-          data: "IRD14A\r\n"    # Geschwindigkeit
+          data: "IRD14A\r\n"    # speed
       - delay: 30ms
       - uart.write:
           id: s4_uart
-          data: "IRS1A9\r\n"    # Schlagfrequenz
+          data: "IRS1A9\r\n"    # stroke rate
       - delay: 30ms
       - uart.write:
           id: s4_uart
-          data: "IRD140\r\n"    # Schlagzahl
+          data: "IRD140\r\n"    # stroke count
       - delay: 30ms
       - uart.write:
           id: s4_uart
@@ -191,23 +191,23 @@ script:
       - delay: 30ms
       - uart.write:
           id: s4_uart
-          data: "IRT1E1\r\n"    # Zeit hh/mm/ss
+          data: "IRT1E1\r\n"    # time hh/mm/ss
       - delay: 30ms
       - uart.write:
           id: s4_uart
-          data: "IRD088\r\n"    # Watt (ungeprueft)
-      # Puls nur mit Brustgurt:
+          data: "IRD088\r\n"    # watts (unverified)
+      # Heart rate, chest strap only:
       # - delay: 30ms
       # - uart.write:
       #     id: s4_uart
       #     data: "IRS1A0\r\n"
 
-  # Langsam veraenderliche Werte - reicht alle paar Sekunden.
+  # Slowly changing values - every few seconds is enough.
   - id: poll_s4_slow
     then:
       - uart.write:
           id: s4_uart
-          data: "IRD081\r\n"    # Lebenszeit-Distanz
+          data: "IRD081\r\n"    # lifetime distance
 
   - id: start_session
     then:
@@ -227,8 +227,8 @@ script:
           id(sess_samples) = 0;
           ESP_LOGI("session", "Start %s", buf);
 
-  # Wird beim Aktivitaets-Timeout aufgerufen: Zusammenfassung bauen,
-  # retained publishen, Session schliessen.
+  # Called on activity timeout: build the summary, publish it retained,
+  # close the session.
   - id: end_session
     then:
       - lambda: |-
@@ -242,14 +242,14 @@ script:
             (int) id(s4_strokes), avg_speed, avg_spm);
           id(last_summary_json) = std::string(buf);
           id(session_active) = false;
-          ESP_LOGI("session", "Ende %s", buf);
+          ESP_LOGI("session", "End %s", buf);
       - mqtt.publish:
           topic: waterrower/session/last
           retain: true
           payload: !lambda return id(last_summary_json);
 
-  # Alle Live-Werte gebuendelt inkl. Session-ID - fuer Telegraf/InfluxDB
-  # damit die ID direkt als Tag am Datenpunkt haengt.
+  # All live values bundled incl. the session ID - for Telegraf/InfluxDB,
+  # so the ID is attached to the data point as a tag.
   - id: publish_live_json
     then:
       - mqtt.publish_json:
@@ -264,10 +264,10 @@ script:
             root["watts"]       = (int) id(s4_watts);
 
 ###############################################################################
-# Zeitgeber
+# Timers
 ###############################################################################
 interval:
-  # Polling: jede Sekunde im Training, alle 5 s im Leerlauf.
+  # Polling: every second during a workout, every 5 s while idle.
   - interval: 1s
     then:
       - lambda: |-
@@ -279,7 +279,7 @@ interval:
             id(poll_s4_slow).execute();
           }
 
-          // Session-Mittelwerte pro Sekunde aufsummieren
+          // accumulate per-second session averages
           if (id(session_active)) {
             id(sess_speed_sum) += id(s4_speed_cms);
             id(sess_spm_sum)   += id(s4_stroke_rate);
@@ -287,13 +287,13 @@ interval:
             id(publish_live_json).execute();
           }
 
-          // Aktivitaets-Timeout -> Session beenden
+          // activity timeout -> end the session
           if (id(session_active) && (millis() - id(last_activity_ms) > 30000)) {
             id(end_session).execute();
           }
 
-  # Verbindungsueberwachung: der S4 schickt im Leerlauf jede Sekunde PING.
-  # 10 s Funkstille = Verbindung tot -> Handshake neu.
+  # Link supervision: the S4 sends PING every second while idle.
+  # 10 s of silence = link dead -> redo the handshake.
   - interval: 5s
     then:
       - if:
@@ -302,10 +302,10 @@ interval:
           then:
             - logger.log:
                 level: WARN
-                format: "Keine Daten vom S4 seit >10s, Handshake neu"
+                format: "No data from S4 for >10 s, redoing handshake"
             - script.execute: s4_handshake
 
-  # Empfang und Parsing
+  # Receive and parse
   - interval: 100ms
     then:
       - lambda: |-
@@ -330,7 +330,7 @@ interval:
             id(s4_rx_buffer).clear();
             id(last_rx_ms) = millis();
 
-            // Schlag-Ereignisse und Paddel-Pulse: Aktivitaet, kein Wert
+            // stroke events and paddle pulses: activity, no value
             if (line == "SS" || line == "SE" || (line.size() == 3 && line[0] == 'P')) {
               mark_activity();
               continue;
@@ -375,7 +375,7 @@ interval:
 ###############################################################################
 sensor:
   - platform: template
-    name: "WaterRower Distanz"
+    name: "WaterRower Distance"
     id: wr_distance
     state_topic: waterrower/distance
     unit_of_measurement: "m"
@@ -384,7 +384,7 @@ sensor:
     update_interval: 1s
 
   - platform: template
-    name: "WaterRower Geschwindigkeit"
+    name: "WaterRower Speed"
     id: wr_speed
     state_topic: waterrower/speed
     unit_of_measurement: "m/s"
@@ -393,7 +393,7 @@ sensor:
     update_interval: 1s
 
   - platform: template
-    name: "WaterRower Schlagfrequenz"
+    name: "WaterRower Stroke Rate"
     id: wr_stroke_rate
     state_topic: waterrower/stroke_rate
     unit_of_measurement: "spm"
@@ -402,15 +402,15 @@ sensor:
     update_interval: 1s
 
   - platform: template
-    name: "WaterRower Schlaege"
+    name: "WaterRower Strokes"
     id: wr_strokes
     state_topic: waterrower/strokes
     accuracy_decimals: 0
     lambda: return id(s4_strokes);
     update_interval: 1s
 
-  # Spec S.20: (stroke_average - stroke_pull) * 1.25 = Ratio-Anzeige.
-  # Gegen den "ratio"-Wert auf dem Display abgleichen.
+  # Spec p.20: (stroke_average - stroke_pull) * 1.25 = ratio display.
+  # Check against the "ratio" value on the display.
   - platform: template
     name: "WaterRower Ratio"
     id: wr_ratio
@@ -422,7 +422,7 @@ sensor:
     update_interval: 1s
 
   - platform: template
-    name: "WaterRower Zugphase"
+    name: "WaterRower Pull Time"
     id: wr_pull_time
     unit_of_measurement: "s"
     accuracy_decimals: 2
@@ -430,7 +430,7 @@ sensor:
     update_interval: 1s
 
   - platform: template
-    name: "WaterRower Dauer"
+    name: "WaterRower Duration"
     id: wr_elapsed
     state_topic: waterrower/duration
     unit_of_measurement: "s"
@@ -440,7 +440,7 @@ sensor:
     update_interval: 1s
 
   - platform: template
-    name: "WaterRower Watt"
+    name: "WaterRower Watts"
     id: wr_watts
     state_topic: waterrower/watts
     unit_of_measurement: "W"
@@ -449,7 +449,7 @@ sensor:
     update_interval: 1s
 
   - platform: template
-    name: "WaterRower Gesamtdistanz"
+    name: "WaterRower Total Distance"
     id: wr_total_distance
     state_topic: waterrower/total_distance
     unit_of_measurement: "m"
@@ -459,7 +459,7 @@ sensor:
     update_interval: 10s
 
   - platform: template
-    name: "WaterRower Session Ø Geschwindigkeit"
+    name: "WaterRower Session Avg Speed"
     id: wr_sess_avg_speed
     unit_of_measurement: "m/s"
     accuracy_decimals: 2
@@ -469,7 +469,7 @@ sensor:
     update_interval: 2s
 
   - platform: template
-    name: "WaterRower Session Ø Schlagfrequenz"
+    name: "WaterRower Session Avg Stroke Rate"
     id: wr_sess_avg_spm
     unit_of_measurement: "spm"
     accuracy_decimals: 1
@@ -479,7 +479,7 @@ sensor:
     update_interval: 2s
 
   # - platform: template
-  #   name: "WaterRower Puls"
+  #   name: "WaterRower Heart Rate"
   #   id: wr_heart_rate
   #   state_topic: waterrower/heart_rate
   #   unit_of_measurement: "bpm"
@@ -489,14 +489,14 @@ sensor:
 
 binary_sensor:
   - platform: template
-    name: "WaterRower Session aktiv"
+    name: "WaterRower Session Active"
     id: wr_session_active
     state_topic: waterrower/session_active
     lambda: return id(session_active);
 
 text_sensor:
   - platform: template
-    name: "WaterRower Dauer (hh:mm:ss)"
+    name: "WaterRower Duration (hh:mm:ss)"
     id: wr_elapsed_formatted
     update_interval: 1s
     lambda: |-
@@ -507,7 +507,7 @@ text_sensor:
       return {std::string(buf)};
 
   - platform: template
-    name: "WaterRower 500m-Split"
+    name: "WaterRower 500m Split"
     id: wr_split
     state_topic: waterrower/split_500m
     update_interval: 1s
@@ -526,20 +526,20 @@ text_sensor:
     update_interval: 1s
 
   - platform: template
-    name: "WaterRower Letzte Session"
+    name: "WaterRower Last Session"
     id: wr_last_summary
     lambda: return {id(last_summary_json)};
     update_interval: 5s
 
   - platform: template
-    name: "WaterRower S4 Rohdaten"
+    name: "WaterRower S4 Raw Data"
     id: wr_raw_debug
     lambda: return {id(s4_last_raw_line)};
     update_interval: 1s
 
 button:
-  # Spec S.5: RESET = wie Power-Taste am Monitor. Laufende Session wird
-  # vorher sauber abgeschlossen, damit die Zusammenfassung nicht verloren geht.
+  # Spec p.5: RESET = like the power button on the monitor. A running
+  # session is closed cleanly first so the summary isn't lost.
   - platform: template
     name: "WaterRower Reset"
     id: wr_reset

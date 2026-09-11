@@ -1,4 +1,4 @@
-"""WaterRower Tracker – Weboberfläche und API."""
+"""WaterRower Tracker - web UI and API."""
 
 import asyncio
 import csv
@@ -25,7 +25,7 @@ STATIC = Path(__file__).parent / "static"
 
 
 def load_settings() -> dict:
-    """Gespeicherte Einstellungen; Umgebungsvariablen dienen als Vorbelegung."""
+    """Saved settings; environment variables serve as defaults."""
     s = {
         "host": os.environ.get("MQTT_HOST", ""),
         "port": int(os.environ.get("MQTT_PORT", "1883")),
@@ -61,7 +61,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="WaterRower Tracker", lifespan=lifespan)
 
 
-# --- Einstellungen ------------------------------------------------------
+# --- Settings --------------------------------------------------------------
 
 class Settings(BaseModel):
     host: str
@@ -85,10 +85,10 @@ def set_settings(new: Settings):
     s = new.model_dump()
     s["host"] = s["host"].strip()
     s["prefix"] = s["prefix"].strip().strip("/") or "waterrower"
-    if s["password"] == "••••••":              # unverändert gelassen
+    if s["password"] == "••••••":              # left unchanged in the form
         s["password"] = ingest.settings.get("password", "")
     if not s["host"]:
-        raise HTTPException(400, "Broker-Adresse fehlt")
+        raise HTTPException(400, "Broker address missing")
     save_settings(s)
     ingest.configure(s)
     ingest.start()
@@ -104,7 +104,7 @@ def live():
 
 @app.get("/api/stream")
 async def stream():
-    """Server-Sent Events: jeder MQTT-Update landet sofort im Browser."""
+    """Server-Sent Events: every MQTT update reaches the browser immediately."""
     queue: asyncio.Queue = asyncio.Queue(maxsize=50)
     loop = asyncio.get_running_loop()
 
@@ -146,7 +146,7 @@ def sessions():
 def session(session_id: str):
     data = db.get_session(session_id)
     if not data:
-        raise HTTPException(404, "Session nicht gefunden")
+        raise HTTPException(404, "Session not found")
     return data
 
 
@@ -160,7 +160,7 @@ def delete_session(session_id: str):
 def export_csv(session_id: str):
     samples = db.get_samples(session_id)
     if not samples:
-        raise HTTPException(404, "Session nicht gefunden")
+        raise HTTPException(404, "Session not found")
     buf = io.StringIO()
     w = csv.DictWriter(buf, fieldnames=samples[0].keys())
     w.writeheader()
@@ -171,7 +171,7 @@ def export_csv(session_id: str):
     )
 
 
-# --- Oberfläche -------------------------------------------------------------
+# --- UI --------------------------------------------------------------------
 
 @app.get("/")
 def index():

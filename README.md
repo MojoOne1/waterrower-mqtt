@@ -202,7 +202,8 @@ For your own analysis:
 | `GET /api/sessions/{id}/export.csv` | Samples as CSV |
 | `DELETE /api/sessions/{id}` | Delete a session |
 
-The UI is currently German-only.
+The UI is available in English and German – the DE/EN toggle in the header
+switches it; the default follows the browser language.
 
 ## Troubleshooting
 
@@ -229,7 +230,6 @@ The UI is currently German-only.
   optional alongside the Docker tracker)
 - Workout overview in HA (e.g. embed the tracker via iframe)
 - Heart-rate sensing once a chest strap is acquired
-- English UI for the tracker
 
 ## License
 

@@ -1,4 +1,4 @@
-/* WaterRower Tracker – Oberfläche (keine Abhängigkeiten) */
+/* WaterRower Tracker - UI (no dependencies) */
 
 const $ = (id) => document.getElementById(id);
 const COLORS = ["#2a2d31", "#c8a878", "#5f8a4e", "#6b7a99"];
@@ -7,9 +7,101 @@ const OLIVE = "#a6ad84";
 let sessions = [];
 let selected = null;
 let compareSet = new Set();
+let lastSnap = null;
 const cache = new Map();   // session_id -> {session, samples}
 
-// --- Hilfen ------------------------------------------------------------
+// --- Language ------------------------------------------------------------
+
+const I18N = {
+  de: {
+    locale: "de-DE",
+    connecting: "verbinde …", connOff: "nicht verbunden", connOn: "verbunden", connLive: "Aufzeichnung läuft",
+    connLost: "Verbindung verloren, versuche erneut …",
+    settingsTitle: "Verbindung zum MQTT-Broker",
+    labelHost: "Adresse", labelPort: "Port", labelUser: "Benutzer", labelPassword: "Passwort", labelPrefix: "Topic-Präfix",
+    phHost: "10.0.0.5 oder broker.local", phOptional: "optional",
+    settingsHint: "Der Präfix muss zu <code>topic_prefix</code> in der ESPHome-Konfiguration passen.",
+    btnConnect: "Verbinden", formConnecting: "Verbinde …", formConnected: "Verbunden",
+    saveFailed: "Speichern fehlgeschlagen", noConnection: "Keine Verbindung – Adresse, Port und Login prüfen",
+    waiting: "Warten auf Ruderschlag …",
+    waitingTotal: (m) => `Warten auf Ruderschlag. Gesamt gerudert: ${m} m`,
+    running: (when) => `Einheit <strong>${when}</strong> läuft`,
+    split500: (split) => ` · 500 m in <strong>${split}</strong>`,
+    sessionsTitle: "Einheiten",
+    sessionsEmpty: "Noch keine Einheit aufgezeichnet. Die erste erscheint hier, sobald du losruderst.",
+    open: "offen", inCompare: "im Vergleich",
+    compare: "vergleichen", delete: "löschen", confirmDelete: "Diese Einheit endgültig löschen?",
+    maxCompare: "Maximal vier Einheiten im Vergleich.",
+    chartSpeed: "Geschwindigkeit in m/s", chartSpm: "Schlagfrequenz",
+    compareTitle: "Vergleich", clearSelection: "Auswahl leeren",
+    chartCmp: "Geschwindigkeit ab Start der jeweiligen Einheit",
+    allSessions: "Alle Einheiten", chartTrend: "Distanz je Einheit",
+    trendSum: (n, m, dur) => `${n} Einheiten · ${m} m · ${dur} gesamt`,
+    noSamples: "Keine Messpunkte", avg: "Ø",
+    fDistance: "Distanz", fDuration: "Dauer", fSplit: "Ø 500 m", fAvgSpeed: "Ø Geschwindigkeit", fPeak: "Spitze",
+    fAvgSpm: "Ø Schlagfrequenz", fStrokes: "Schläge", fMeterPerStroke: "Meter je Schlag",
+  },
+  en: {
+    locale: "en-GB",
+    connecting: "connecting …", connOff: "not connected", connOn: "connected", connLive: "recording",
+    connLost: "Connection lost, retrying …",
+    settingsTitle: "MQTT broker connection",
+    labelHost: "Address", labelPort: "Port", labelUser: "Username", labelPassword: "Password", labelPrefix: "Topic prefix",
+    phHost: "10.0.0.5 or broker.local", phOptional: "optional",
+    settingsHint: "The prefix must match <code>topic_prefix</code> in the ESPHome configuration.",
+    btnConnect: "Connect", formConnecting: "Connecting …", formConnected: "Connected",
+    saveFailed: "Saving failed", noConnection: "No connection – check address, port and login",
+    waiting: "Waiting for a stroke …",
+    waitingTotal: (m) => `Waiting for a stroke. Total rowed: ${m} m`,
+    running: (when) => `Session <strong>${when}</strong> in progress`,
+    split500: (split) => ` · 500 m in <strong>${split}</strong>`,
+    sessionsTitle: "Sessions",
+    sessionsEmpty: "No session recorded yet. The first one shows up here as soon as you start rowing.",
+    open: "open", inCompare: "in comparison",
+    compare: "compare", delete: "delete", confirmDelete: "Delete this session permanently?",
+    maxCompare: "At most four sessions can be compared.",
+    chartSpeed: "Speed in m/s", chartSpm: "Stroke rate",
+    compareTitle: "Comparison", clearSelection: "Clear selection",
+    chartCmp: "Speed from the start of each session",
+    allSessions: "All sessions", chartTrend: "Distance per session",
+    trendSum: (n, m, dur) => `${n} sessions · ${m} m · ${dur} total`,
+    noSamples: "No samples", avg: "avg",
+    fDistance: "Distance", fDuration: "Duration", fSplit: "Avg 500 m", fAvgSpeed: "Avg speed", fPeak: "Peak",
+    fAvgSpm: "Avg stroke rate", fStrokes: "Strokes", fMeterPerStroke: "Metres per stroke",
+  },
+};
+
+let lang = "en";
+try { lang = localStorage.getItem("lang") || (navigator.language.startsWith("de") ? "de" : "en"); } catch {}
+if (!I18N[lang]) lang = "en";
+const t = (key, ...args) => { const v = I18N[lang][key]; return typeof v === "function" ? v(...args) : v; };
+const locale = () => I18N[lang].locale;
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-html]").forEach((el) => { el.innerHTML = t(el.dataset.i18nHtml); });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+  document.querySelectorAll(".lang button").forEach((b) => {
+    const on = b.dataset.lang === lang;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", String(on));
+  });
+}
+
+async function setLang(next) {
+  if (!I18N[next] || next === lang) return;
+  lang = next;
+  try { localStorage.setItem("lang", lang); } catch {}
+  applyLang();
+  if (lastSnap) renderLive(lastSnap);
+  await loadSessions();
+  if (selected) await selectSession(selected);
+  renderCompare();
+}
+document.querySelectorAll(".lang button").forEach((b) => { b.onclick = () => setLang(b.dataset.lang); });
+
+// --- Helpers -----------------------------------------------------------
 
 const fmtDur = (s) => {
   s = Math.max(0, Math.round(s || 0));
@@ -29,9 +121,10 @@ const parseSid = (sid) => {
 const fmtWhen = (sid, ts) => {
   const d = ts ? new Date(ts * 1000) : parseSid(sid);
   if (!d) return sid;
-  return d.toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleString(locale(), { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 };
-const fmtDay = (ts) => new Date(ts * 1000).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+const fmtDay = (ts) => new Date(ts * 1000).toLocaleDateString(locale(), { day: "2-digit", month: "2-digit" });
+const fmtInt = (n) => Math.round(n).toLocaleString(locale());
 const smooth = (arr, w = 7) => arr.map((_, i) => {
   const a = arr.slice(Math.max(0, i - w), i + w + 1).filter((v) => v != null);
   return a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
@@ -43,7 +136,7 @@ async function getSession(id) {
   return cache.get(id);
 }
 
-// --- Live-Anzeige --------------------------------------------------------
+// --- Live display --------------------------------------------------------
 
 function renderLive(snap) {
   const v = snap.values || {};
@@ -58,16 +151,15 @@ function renderLive(snap) {
   const conn = $("conn");
   conn.classList.toggle("on", snap.connected);
   conn.classList.toggle("live", snap.connected && active);
-  $("conn-text").textContent = !snap.connected ? "nicht verbunden" : active ? "Aufzeichnung läuft" : "verbunden";
+  $("conn-text").textContent = !snap.connected ? t("connOff") : active ? t("connLive") : t("connOn");
 
   const line = $("session-line");
   if (active && snap.session_id) {
-    line.innerHTML = `Einheit <strong>${fmtWhen(snap.session_id)}</strong> läuft`
-      + (v.speed ? ` · 500 m in <strong>${fmtSplit(v.speed)}</strong>` : "");
+    line.innerHTML = t("running", fmtWhen(snap.session_id)) + (v.speed ? t("split500", fmtSplit(v.speed)) : "");
   } else if (v.total_distance) {
-    line.textContent = `Warten auf Ruderschlag. Gesamt gerudert: ${Math.round(v.total_distance).toLocaleString("de-DE")} m`;
+    line.textContent = t("waitingTotal", fmtInt(v.total_distance));
   } else {
-    line.textContent = "Warten auf Ruderschlag …";
+    line.textContent = t("waiting");
   }
 }
 
@@ -76,17 +168,18 @@ function connectStream() {
   let wasActive = false;
   es.onmessage = (e) => {
     const snap = JSON.parse(e.data);
+    lastSnap = snap;
     renderLive(snap);
     if (wasActive && !snap.session_active) { cache.clear(); loadSessions(); }
     wasActive = snap.session_active;
   };
   es.onerror = () => {
     $("conn").classList.remove("on", "live");
-    $("conn-text").textContent = "Verbindung verloren, versuche erneut …";
+    $("conn-text").textContent = t("connLost");
   };
 }
 
-// --- Liste ---------------------------------------------------------------
+// --- Session list --------------------------------------------------------
 
 async function loadSessions() {
   sessions = await (await fetch("/api/sessions")).json();
@@ -96,12 +189,13 @@ async function loadSessions() {
   for (const s of sessions) {
     const li = document.createElement("li");
     li.dataset.id = s.session_id;
+    li.dataset.cmpLabel = t("inCompare");
     li.classList.toggle("sel", s.session_id === selected);
     li.classList.toggle("cmp", compareSet.has(s.session_id));
     li.innerHTML = `
       <span class="when">${fmtWhen(s.session_id, s.started_at)}</span>
       <span class="dist">${Math.round(s.distance_m)} m</span>
-      <span class="sub">${fmtDur(s.duration_s)} · ${fmtSplit(s.avg_speed_ms)} /500 m · ${Math.round(s.avg_spm)} spm${s.ended_at ? "" : " · offen"}</span>
+      <span class="sub">${fmtDur(s.duration_s)} · ${fmtSplit(s.avg_speed_ms)} /500 m · ${Math.round(s.avg_spm)} spm${s.ended_at ? "" : " · " + t("open")}</span>
       <canvas class="spark" height="22"></canvas>`;
     li.onclick = () => selectSession(s.session_id);
     ul.appendChild(li);
@@ -139,14 +233,14 @@ async function selectSession(id) {
   const speeds = samples.map((x) => x.speed_ms), spms = samples.map((x) => x.stroke_rate);
   const maxSpeed = Math.max(0, ...speeds.filter((v) => v != null));
   $("facts").innerHTML = [
-    ["Distanz", `${Math.round(s.distance_m)} m`, true],
-    ["Dauer", fmtDur(s.duration_s), true],
-    ["Ø 500 m", fmtSplit(s.avg_speed_ms), true],
-    ["Ø Geschwindigkeit", `${Number(s.avg_speed_ms).toFixed(2)} m/s`],
-    ["Spitze", `${maxSpeed.toFixed(2)} m/s`],
-    ["Ø Schlagfrequenz", `${Math.round(s.avg_spm)} spm`],
-    ["Schläge", s.strokes],
-    ["Meter je Schlag", s.strokes ? (s.distance_m / s.strokes).toFixed(1) : "–"],
+    [t("fDistance"), `${Math.round(s.distance_m)} m`, true],
+    [t("fDuration"), fmtDur(s.duration_s), true],
+    [t("fSplit"), fmtSplit(s.avg_speed_ms), true],
+    [t("fAvgSpeed"), `${Number(s.avg_speed_ms).toFixed(2)} m/s`],
+    [t("fPeak"), `${maxSpeed.toFixed(2)} m/s`],
+    [t("fAvgSpm"), `${Math.round(s.avg_spm)} spm`],
+    [t("fStrokes"), s.strokes],
+    [t("fMeterPerStroke"), s.strokes ? (s.distance_m / s.strokes).toFixed(1) : "–"],
   ].map(([k, v, lead]) => `<div${lead ? ' class="lead"' : ""}><dt>${k}</dt><dd>${v}</dd></div>`).join("");
 
   const t0 = samples.length ? samples[0].ts : 0;
@@ -164,7 +258,7 @@ async function selectSession(id) {
 }
 
 $("del").onclick = async () => {
-  if (!selected || !confirm("Diese Einheit endgültig löschen?")) return;
+  if (!selected || !confirm(t("confirmDelete"))) return;
   await fetch(`/api/sessions/${selected}`, { method: "DELETE" });
   compareSet.delete(selected); cache.delete(selected);
   selected = null;
@@ -173,11 +267,11 @@ $("del").onclick = async () => {
   renderCompare();
 };
 
-// --- Vergleich -----------------------------------------------------------
+// --- Comparison ----------------------------------------------------------
 
 $("cmp-toggle").onchange = (e) => {
   if (!selected) return;
-  if (e.target.checked && compareSet.size >= 4) { e.target.checked = false; alert("Maximal vier Einheiten im Vergleich."); return; }
+  if (e.target.checked && compareSet.size >= 4) { e.target.checked = false; alert(t("maxCompare")); return; }
   e.target.checked ? compareSet.add(selected) : compareSet.delete(selected);
   document.querySelectorAll("#sessions li").forEach((li) => li.classList.toggle("cmp", compareSet.has(li.dataset.id)));
   renderCompare();
@@ -207,13 +301,13 @@ async function renderCompare() {
     fmt: (t, v) => `${fmtDur(t)} · ${v.toFixed(2)} m/s` });
 
   const metrics = [
-    ["Distanz", (s) => Math.round(s.distance_m), (v) => `${v} m`, "max"],
-    ["Dauer", (s) => s.duration_s, fmtDur, "max"],
-    ["Ø 500 m", (s) => s.avg_speed_ms, fmtSplit, "max"],
-    ["Ø Geschwindigkeit", (s) => s.avg_speed_ms, (v) => `${v.toFixed(2)} m/s`, "max"],
-    ["Ø Schlagfrequenz", (s) => s.avg_spm, (v) => `${Math.round(v)} spm`, null],
-    ["Schläge", (s) => s.strokes, (v) => v, "max"],
-    ["Meter je Schlag", (s) => (s.strokes ? s.distance_m / s.strokes : 0), (v) => v.toFixed(1), "max"],
+    [t("fDistance"), (s) => Math.round(s.distance_m), (v) => `${v} m`, "max"],
+    [t("fDuration"), (s) => s.duration_s, fmtDur, "max"],
+    [t("fSplit"), (s) => s.avg_speed_ms, fmtSplit, "max"],
+    [t("fAvgSpeed"), (s) => s.avg_speed_ms, (v) => `${v.toFixed(2)} m/s`, "max"],
+    [t("fAvgSpm"), (s) => s.avg_spm, (v) => `${Math.round(v)} spm`, null],
+    [t("fStrokes"), (s) => s.strokes, (v) => v, "max"],
+    [t("fMeterPerStroke"), (s) => (s.strokes ? s.distance_m / s.strokes : 0), (v) => v.toFixed(1), "max"],
   ];
   const head = `<thead><tr><th></th>${rows.map((d, i) => `<th><i class="sw" style="background:${COLORS[i]}"></i>${fmtWhen(d.session.session_id, d.session.started_at)}</th>`).join("")}</tr></thead>`;
   const body = metrics.map(([label, get, fmt, best]) => {
@@ -224,7 +318,7 @@ async function renderCompare() {
   $("cmp-table").innerHTML = head + `<tbody>${body}</tbody>`;
 }
 
-// --- Trend über alle Einheiten --------------------------------------------
+// --- Trend across all sessions --------------------------------------------
 
 function renderTrend() {
   const box = $("trend");
@@ -233,14 +327,14 @@ function renderTrend() {
   const chrono = [...sessions].reverse();
   const total = sessions.reduce((a, s) => a + s.distance_m, 0);
   const totalT = sessions.reduce((a, s) => a + s.duration_s, 0);
-  $("trend-sum").textContent = `${sessions.length} Einheiten · ${Math.round(total).toLocaleString("de-DE")} m · ${fmtDur(totalT)} gesamt`;
+  $("trend-sum").textContent = t("trendSum", sessions.length, fmtInt(total), fmtDur(totalT));
   drawBars($("ch-trend"), chrono.map((s) => ({
     v: s.distance_m, label: fmtDay(s.started_at), id: s.session_id,
     tip: `${fmtWhen(s.session_id, s.started_at)} · ${Math.round(s.distance_m)} m · ${fmtSplit(s.avg_speed_ms)} /500 m`,
   })), { readout: $("ro-trend") });
 }
 
-// --- Zeichnen -------------------------------------------------------------
+// --- Drawing --------------------------------------------------------------
 
 function setupCanvas(canvas) {
   const dpr = window.devicePixelRatio || 1;
@@ -258,7 +352,7 @@ function drawLine(canvas, series, opts = {}) {
   const pad = { l: 40, r: 12, t: 12, b: 24 };
   const allX = series.flatMap((s) => s.x), allY = series.flatMap((s) => s.y).filter((v) => v != null);
   if (!allX.length || !allY.length) {
-    ctx.fillStyle = "#70746b"; ctx.font = "13px system-ui"; ctx.fillText("Keine Messpunkte", pad.l, H / 2);
+    ctx.fillStyle = "#70746b"; ctx.font = "13px system-ui"; ctx.fillText(t("noSamples"), pad.l, H / 2);
     canvas.onmousemove = canvas.onmouseleave = null; return;
   }
   const xMax = Math.max(...allX, 1);
@@ -302,7 +396,7 @@ function drawLine(canvas, series, opts = {}) {
       ctx.beginPath(); ctx.moveTo(pad.l, sy(opts.avg)); ctx.lineTo(W - pad.r, sy(opts.avg)); ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle = "#2a2d31"; ctx.textAlign = "left"; ctx.font = "10px system-ui";
-      ctx.fillText(`Ø ${opts.yFmt ? opts.yFmt(opts.avg) : opts.avg}`, pad.l + 4, sy(opts.avg) - 4);
+      ctx.fillText(`${t("avg")} ${opts.yFmt ? opts.yFmt(opts.avg) : opts.avg}`, pad.l + 4, sy(opts.avg) - 4);
     }
   };
   base();
@@ -365,7 +459,7 @@ function drawBars(canvas, items, opts = {}) {
 
 window.addEventListener("resize", () => { if (selected) selectSession(selected); renderCompare(); });
 
-// --- Einstellungen -------------------------------------------------------
+// --- Settings ------------------------------------------------------------
 
 const settingsBox = $("settings"), settingsForm = $("settings-form"), settingsMsg = $("settings-msg");
 
@@ -386,16 +480,17 @@ settingsForm.onsubmit = async (e) => {
   e.preventDefault();
   const body = Object.fromEntries(new FormData(settingsForm));
   body.port = Number(body.port) || 1883;
-  settingsMsg.textContent = "Verbinde …"; settingsMsg.className = "form-msg";
+  settingsMsg.textContent = t("formConnecting"); settingsMsg.className = "form-msg";
   const r = await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  if (!r.ok) { settingsMsg.textContent = (await r.json()).detail || "Speichern fehlgeschlagen"; settingsMsg.className = "form-msg err"; return; }
+  if (!r.ok) { settingsMsg.textContent = (await r.json()).detail || t("saveFailed"); settingsMsg.className = "form-msg err"; return; }
   await new Promise((res) => setTimeout(res, 2500));
   const s = await (await fetch("/api/settings")).json();
-  if (s.connected) { settingsMsg.textContent = "Verbunden"; settingsMsg.className = "form-msg ok"; setTimeout(() => showSettings(false), 1200); }
-  else { settingsMsg.textContent = s.error || "Keine Verbindung – Adresse, Port und Login prüfen"; settingsMsg.className = "form-msg err"; }
+  if (s.connected) { settingsMsg.textContent = t("formConnected"); settingsMsg.className = "form-msg ok"; setTimeout(() => showSettings(false), 1200); }
+  else { settingsMsg.textContent = s.error || t("noConnection"); settingsMsg.className = "form-msg err"; }
 };
 
 // --- Start ---------------------------------------------------------------
+applyLang();
 connectStream();
 loadSessions();
 loadSettings();

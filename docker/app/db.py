@@ -1,4 +1,4 @@
-"""SQLite-Speicher für Sessions und Messpunkte."""
+"""SQLite storage for sessions and samples."""
 
 import json
 import re
@@ -12,7 +12,7 @@ _SID = re.compile(r"^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})$")
 
 
 def started_from_sid(session_id: str, fallback: float) -> float:
-    """Session-IDs der ESPHome-Bridge sind Zeitstempel (lokale Zeit des ESP)."""
+    """The ESPHome bridge's session IDs are timestamps in the ESP's local time."""
     m = _SID.match(session_id)
     if not m:
         return fallback
@@ -66,7 +66,7 @@ class Database:
         finally:
             conn.close()
 
-    # --- Schreiben -------------------------------------------------------
+    # --- Write -----------------------------------------------------------
 
     def add_sample(self, session_id: str, ts: float, data: dict) -> None:
         with self._lock, self._conn() as c:
@@ -84,8 +84,8 @@ class Database:
                     data.get("strokes"), data.get("duration_s"), data.get("watts"),
                 ),
             )
-            # laufende Kennzahlen mitführen, damit die Liste auch ohne
-            # Zusammenfassung sinnvolle Werte zeigt
+            # keep running figures so the list shows sensible values even
+            # before the summary arrives
             c.execute(
                 """UPDATE sessions SET
                      distance_m = ?, duration_s = ?, strokes = ?,
@@ -122,7 +122,7 @@ class Database:
             c.execute("DELETE FROM samples  WHERE session_id = ?", (session_id,))
             c.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
 
-    # --- Lesen -----------------------------------------------------------
+    # --- Read ------------------------------------------------------------
 
     def list_sessions(self) -> list[dict]:
         with self._conn() as c:
@@ -138,7 +138,7 @@ class Database:
 
     @staticmethod
     def _sparkline(c, session_id: str, points: int = 40) -> list[float]:
-        """Geschwindigkeit auf `points` Stützstellen reduziert, für die Liste."""
+        """Speed reduced to `points` samples, for the session list."""
         rows = c.execute(
             "SELECT speed_ms FROM samples WHERE session_id = ? ORDER BY ts", (session_id,)
         ).fetchall()
