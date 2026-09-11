@@ -164,8 +164,14 @@ the YAML.
 
 ### What the firmware does
 
-- Sends the `USB` command on boot (without it the S4 stays silent) and
-  repeats it automatically if no data arrives for 10 s.
+- Manages the USB link around the S4's own power-off: when the S4 shows
+  up on USB it sends the `USB` command (without it the S4 stays silent).
+  After a workout, once "USB Idle Timeout" (default 60 s) passes without
+  a stroke, it sends `EXIT` – the S4 only powers itself off outside USB
+  mode – and then only probes every "USB Probe Interval" minutes (default
+  4) in case rowing resumes. When the S4 switches off it disappears from
+  USB and nothing is sent until it reappears. The "USB Link" switch turns
+  all of this off for a fully passive link.
 - Polls the S4's memory addresses every second during a workout. While
   idle it sends nothing at all – every packet the S4 receives resets its
   auto power-off timer, so the monitor still switches itself off as usual.
@@ -358,10 +364,13 @@ match: the `VERSION` file at the repo root and `substitutions.version` in
   rolled back to the old one. Test the last change in isolation.
 - **Session start times are off by a few hours:** `TZ` in the compose file
   doesn't match the ESP's time zone.
-- **The monitor never switches itself off:** something is sending it
-  packets while idle. The firmware deliberately stays silent outside a
-  session for this reason – check for other clients on the USB link or
-  a modified polling interval.
+- **The monitor never switches itself off:** it only does so outside USB
+  mode. Check the "USB Mode" entity: it should go off "USB Idle Timeout"
+  seconds after a session ends (log: `Left USB mode`), and "S4 Connected"
+  should follow a few minutes later when the S4 powers down. If "USB
+  Mode" stays on, something keeps re-entering it; if it's off and the S4
+  still stays on with "USB Link" switched off too, the 5 V on VBUS is
+  keeping it awake – that's a hardware matter (switchable VBUS).
 
 ## Open items
 

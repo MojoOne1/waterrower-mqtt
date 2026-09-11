@@ -1,7 +1,7 @@
 # Keep in sync with the VERSION file at the repo root; releases are
 # tagged v<version> in git, which is how a firmware maps to a commit.
 substitutions:
-  version: "1.0.0"
+  version: "1.1.0"
 
 esphome:
   name: esphome-waterrower
@@ -11,11 +11,6 @@ esphome:
     name: "mojoone1.waterrower-mqtt"
     version: "${version}"
   name_add_mac_suffix: false
-  on_boot:
-    priority: -100
-    then:
-      - delay: 3s
-      - script.execute: s4_handshake
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -109,10 +104,31 @@ globals:
     type: bool
     restore_value: false
     initial_value: "true"
-  - id: link_ok                 # S4 answered the handshake and keeps talking
+  # --- USB link state (see the 1 s interval) ---
+  - id: s4_present              # S4 is enumerated on USB, i.e. switched on
     type: bool
     restore_value: false
     initial_value: "false"
+  - id: usb_mode                # S4 answered "USB" and is streaming packets
+    type: bool
+    restore_value: false
+    initial_value: "false"
+  - id: sleeping                # we left USB mode on purpose; only probe occasionally
+    type: bool
+    restore_value: false
+    initial_value: "false"
+  - id: usb_idle_since_ms       # last stroke / link-up / session end
+    type: uint32_t
+    restore_value: false
+    initial_value: "0"
+  - id: last_probe_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: "0"
+  - id: last_handshake_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: "0"
 
   # --- Readings (addresses per "Water Rower S4 S5 USB Protocol Iss 1.04") ---
   - id: s4_distance_m           # 057/058 distance_low/hi
@@ -200,6 +216,20 @@ script:
       - uart.write:
           id: s4_uart
           data: "IV?\r\n"
+
+  # Spec p.4: EXIT ends USB mode; the S4 then behaves as if no PC were
+  # attached, which is what lets its auto power-off kick in.
+  - id: s4_exit
+    then:
+      - uart.write:
+          id: s4_uart
+          data: "EXIT\r\n"
+      - lambda: |-
+          id(usb_mode) = false;
+          id(sleeping) = true;
+          id(last_probe_ms) = millis();
+          ESP_LOGI("s4", "Left USB mode (idle); probing every %d min",
+                   (int) id(wr_probe_interval).state);
 
   # Entities publish only when called from here: every second during a
   # workout, once after the handshake, on the idle transition and after a
@@ -314,6 +344,7 @@ script:
             (int) id(s4_strokes), avg_speed, avg_spm);
           id(last_summary_json) = std::string(buf);
           id(session_active) = false;
+          id(usb_idle_since_ms) = millis();
           ESP_LOGI("session", "End %s", buf);
       - mqtt.publish:
           topic: waterrower/session/last
@@ -348,6 +379,11 @@ script:
           id(s4_watts) = 0;
           id(s4_stroke_avg_25ms) = 0;
           id(s4_stroke_pull_25ms) = 0;
+          // RESET also ends USB mode on the S4 (spec: interactive mode
+          // disabled); the link manager re-handshakes, then idles out.
+          id(usb_mode) = false;
+          id(sleeping) = false;
+          id(usb_idle_since_ms) = millis();
       - script.execute: publish_sensors
 
   # All live values bundled incl. the session ID, one message per second
@@ -369,13 +405,53 @@ script:
 # Timers
 ###############################################################################
 interval:
-  # Polling only during a workout. While idle the S4 gets no requests at
-  # all - every packet it receives resets its auto power-off timer, so
-  # polling would keep it awake forever. Its PING every second is enough
-  # for link supervision.
+  # Link manager + polling.
+  #
+  # The S4 only switches itself off outside USB mode, so after a workout
+  # the link goes: idle timeout -> EXIT -> "sleeping" (a probe handshake
+  # every few minutes in case rowing resumes). Once the S4 powers off it
+  # disappears from USB (is_connected() false) and nothing is sent at all;
+  # when it reappears the handshake follows within seconds.
   - interval: 1s
     then:
       - lambda: |-
+          uint32_t now = millis();
+          bool present = id(s4_uart)->is_connected();
+          if (present != id(s4_present)) {
+            id(s4_present) = present;
+            if (present) {
+              ESP_LOGI("s4", "S4 connected (switched on)");
+              id(sleeping) = false;
+              id(last_handshake_ms) = 0;
+            } else {
+              ESP_LOGW("s4", "S4 disconnected (switched off?)");
+              id(usb_mode) = false;
+              id(sleeping) = false;
+              if (id(session_active)) id(end_session).execute();
+            }
+          }
+          if (present && id(wr_usb_link).state) {
+            if (id(usb_mode)) {
+              if (now - id(last_rx_ms) > 10000) {
+                ESP_LOGW("s4", "No data from S4 for >10 s, USB mode lost");
+                id(usb_mode) = false;
+              } else if (!id(session_active) &&
+                         now - id(usb_idle_since_ms) > (uint32_t) (id(wr_usb_idle_timeout).state * 1000.0f)) {
+                id(s4_exit).execute();
+              }
+            } else {
+              bool due = !id(sleeping) ||
+                         now - id(last_probe_ms) > (uint32_t) (id(wr_probe_interval).state * 60000.0f);
+              if (due && now - id(last_handshake_ms) > 5000) {
+                id(last_handshake_ms) = now;
+                id(last_probe_ms) = now;
+                id(s4_handshake).execute();
+              }
+            }
+          }
+
+          // Polling only during a workout - every packet the S4 receives
+          // counts as activity for it.
           if (id(session_active)) {
             id(poll_tick) = (id(poll_tick) + 1) % 5;
             id(poll_s4).execute();
@@ -400,19 +476,6 @@ interval:
 
   # Link supervision: the S4 sends PING every second while idle.
   # 10 s of silence = link dead -> redo the handshake.
-  # Logged once on loss (the monitor may simply be switched off for hours),
-  # the handshake retry itself stays silent; _WR_ logs the recovery.
-  - interval: 5s
-    then:
-      - lambda: |-
-          if (millis() - id(last_rx_ms) > 10000) {
-            if (id(link_ok)) {
-              ESP_LOGW("s4", "No data from S4 for >10 s (switched off?), retrying handshake every 5 s");
-              id(link_ok) = false;
-            }
-            id(s4_handshake).execute();
-          }
-
   # Receive and parse
   - interval: 100ms
     then:
@@ -423,6 +486,7 @@ interval:
           // after a session shouldn't start the next.
           auto mark_activity = [&](bool stroke_start) {
             id(last_activity_ms) = millis();
+            id(usb_idle_since_ms) = millis();
             id(rowing_idle) = false;
             if (stroke_start && !id(session_active)) id(start_session).execute();
           };
@@ -449,8 +513,10 @@ interval:
               continue;
             }
             if (line == "_WR_") {
-              if (!id(link_ok)) ESP_LOGI("s4", "S4 link up");
-              id(link_ok) = true;
+              if (!id(usb_mode)) ESP_LOGI("s4", "S4 link up (USB mode)");
+              id(usb_mode) = true;
+              id(sleeping) = false;
+              id(usb_idle_since_ms) = millis();
               id(initial_poll).execute();
               continue;
             }
@@ -620,6 +686,18 @@ sensor:
 
 binary_sensor:
   - platform: template
+    name: "S4 Connected"
+    id: wr_s4_connected
+    entity_category: diagnostic
+    lambda: return id(s4_present);
+
+  - platform: template
+    name: "USB Mode"
+    id: wr_usb_mode
+    entity_category: diagnostic
+    lambda: return id(usb_mode);
+
+  - platform: template
     name: "Session Active"
     id: wr_session_active
     state_topic: waterrower/session_active
@@ -695,6 +773,51 @@ number:
     initial_value: 5
     restore_value: true
     optimistic: true
+
+  # Seconds without a stroke (outside a session) before the ESP leaves
+  # USB mode so the S4 can power itself off.
+  - platform: template
+    name: "USB Idle Timeout"
+    id: wr_usb_idle_timeout
+    entity_category: config
+    unit_of_measurement: "s"
+    min_value: 10
+    max_value: 600
+    step: 10
+    initial_value: 60
+    restore_value: true
+    optimistic: true
+
+  # While sleeping (S4 still on, but not in USB mode): minutes between
+  # handshake probes, in case rowing resumes without a power cycle.
+  - platform: template
+    name: "USB Probe Interval"
+    id: wr_probe_interval
+    entity_category: config
+    unit_of_measurement: "min"
+    min_value: 1
+    max_value: 30
+    step: 1
+    initial_value: 4
+    restore_value: true
+    optimistic: true
+
+switch:
+  # Off = fully passive: leave USB mode and never handshake. Useful to
+  # check whether the S4 powers off with just VBUS and enumeration.
+  - platform: template
+    name: "USB Link"
+    id: wr_usb_link
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_on_action:
+      - lambda: |-
+          id(sleeping) = false;
+          id(last_handshake_ms) = 0;
+    turn_off_action:
+      - lambda: |-
+          if (id(usb_mode)) id(s4_exit).execute();
 
 button:
   - platform: template
