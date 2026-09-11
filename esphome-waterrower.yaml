@@ -5,7 +5,7 @@ substitutions:
 
 esphome:
   name: esphome-waterrower
-  friendly_name: ESPHome Waterrower
+  friendly_name: WaterRower
   min_version: 2026.4.0
   project:
     name: "mojoone1.waterrower-mqtt"
