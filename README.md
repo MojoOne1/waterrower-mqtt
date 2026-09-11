@@ -79,7 +79,7 @@ the YAML.
 - Detects session start on the first stroke. A session ends when the
   tracker's "End session" button sends `waterrower/cmd/end_session`, or as
   a safety net after a configurable time without stroke or paddle packets
-  from the S4 (default 5 min, "WaterRower Session Timeout" in Home
+  from the S4 (default 5 min, "Session Timeout" in Home
   Assistant – the speed register isn't used for this, it keeps its last
   value after you stop). Each session gets an ID that's a local timestamp
   (SNTP).
@@ -250,7 +250,7 @@ match: the `VERSION` file at the repo root and `substitutions.version` in
   should show a `_WR_` after `USB`.
 - **Inspect raw data:** Set `usb_uart.channels.debug: true` in the YAML,
   then every packet shows up in the log as a byte sequence. The
-  "WaterRower S4 Raw Data" sensor shows the last parsed line.
+  "S4 Raw Data" sensor shows the last parsed line.
 - **OTA rollback detected:** The new firmware crashed on boot, ESPHome
   rolled back to the old one. Test the last change in isolation.
 - **Session start times are off by a few hours:** `TZ` in the compose file

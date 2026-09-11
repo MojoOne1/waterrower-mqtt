@@ -506,7 +506,7 @@ interval:
 ###############################################################################
 sensor:
   - platform: template
-    name: "WaterRower Distance"
+    name: "Distance"
     id: wr_distance
     state_topic: waterrower/distance
     unit_of_measurement: "m"
@@ -515,7 +515,7 @@ sensor:
     update_interval: never
 
   - platform: template
-    name: "WaterRower Speed"
+    name: "Speed"
     id: wr_speed
     state_topic: waterrower/speed
     unit_of_measurement: "m/s"
@@ -524,7 +524,7 @@ sensor:
     update_interval: never
 
   - platform: template
-    name: "WaterRower Stroke Rate"
+    name: "Stroke Rate"
     id: wr_stroke_rate
     state_topic: waterrower/stroke_rate
     unit_of_measurement: "spm"
@@ -533,7 +533,7 @@ sensor:
     update_interval: never
 
   - platform: template
-    name: "WaterRower Strokes"
+    name: "Strokes"
     id: wr_strokes
     state_topic: waterrower/strokes
     accuracy_decimals: 0
@@ -543,7 +543,7 @@ sensor:
   # Spec p.20: (stroke_average - stroke_pull) * 1.25 = ratio display.
   # Check against the "ratio" value on the display.
   - platform: template
-    name: "WaterRower Ratio"
+    name: "Ratio"
     id: wr_ratio
     state_topic: waterrower/ratio
     accuracy_decimals: 2
@@ -553,7 +553,7 @@ sensor:
     update_interval: never
 
   - platform: template
-    name: "WaterRower Pull Time"
+    name: "Pull Time"
     id: wr_pull_time
     unit_of_measurement: "s"
     accuracy_decimals: 2
@@ -561,7 +561,7 @@ sensor:
     update_interval: never
 
   - platform: template
-    name: "WaterRower Duration"
+    name: "Duration"
     id: wr_elapsed
     state_topic: waterrower/duration
     unit_of_measurement: "s"
@@ -571,7 +571,7 @@ sensor:
     update_interval: never
 
   - platform: template
-    name: "WaterRower Watts"
+    name: "Watts"
     id: wr_watts
     state_topic: waterrower/watts
     unit_of_measurement: "W"
@@ -580,7 +580,7 @@ sensor:
     update_interval: never
 
   - platform: template
-    name: "WaterRower Total Distance"
+    name: "Total Distance"
     id: wr_total_distance
     state_topic: waterrower/total_distance
     unit_of_measurement: "m"
@@ -590,7 +590,7 @@ sensor:
     update_interval: never
 
   - platform: template
-    name: "WaterRower Session Avg Speed"
+    name: "Session Avg Speed"
     id: wr_sess_avg_speed
     unit_of_measurement: "m/s"
     accuracy_decimals: 2
@@ -600,7 +600,7 @@ sensor:
     update_interval: never
 
   - platform: template
-    name: "WaterRower Session Avg Stroke Rate"
+    name: "Session Avg Stroke Rate"
     id: wr_sess_avg_spm
     unit_of_measurement: "spm"
     accuracy_decimals: 1
@@ -610,7 +610,7 @@ sensor:
     update_interval: never
 
   # - platform: template
-  #   name: "WaterRower Heart Rate"
+  #   name: "Heart Rate"
   #   id: wr_heart_rate
   #   state_topic: waterrower/heart_rate
   #   unit_of_measurement: "bpm"
@@ -620,7 +620,7 @@ sensor:
 
 binary_sensor:
   - platform: template
-    name: "WaterRower Session Active"
+    name: "Session Active"
     id: wr_session_active
     state_topic: waterrower/session_active
     lambda: return id(session_active);
@@ -641,7 +641,7 @@ text_sensor:
     entity_category: diagnostic
 
   - platform: template
-    name: "WaterRower Duration (hh:mm:ss)"
+    name: "Duration (hh:mm:ss)"
     id: wr_elapsed_formatted
     update_interval: never
     lambda: |-
@@ -652,7 +652,7 @@ text_sensor:
       return {std::string(buf)};
 
   - platform: template
-    name: "WaterRower 500m Split"
+    name: "500m Split"
     id: wr_split
     state_topic: waterrower/split_500m
     update_interval: never
@@ -664,20 +664,20 @@ text_sensor:
       return {std::string(buf)};
 
   - platform: template
-    name: "WaterRower Session ID"
+    name: "Session ID"
     id: wr_session_id
     state_topic: waterrower/session_id
     lambda: return {id(session_id)};
     update_interval: never
 
   - platform: template
-    name: "WaterRower Last Session"
+    name: "Last Session"
     id: wr_last_summary
     lambda: return {id(last_summary_json)};
     update_interval: never
 
   - platform: template
-    name: "WaterRower S4 Raw Data"
+    name: "S4 Raw Data"
     id: wr_raw_debug
     lambda: return {id(s4_last_raw_line)};
     update_interval: never
@@ -685,7 +685,7 @@ text_sensor:
 number:
   # Minutes without a stroke after which a session ends on its own.
   - platform: template
-    name: "WaterRower Session Timeout"
+    name: "Session Timeout"
     id: wr_session_timeout
     entity_category: config
     unit_of_measurement: "min"
@@ -698,7 +698,7 @@ number:
 
 button:
   - platform: template
-    name: "WaterRower Reset"
+    name: "Reset"
     id: wr_reset
     on_press:
       - script.execute: s4_reset
