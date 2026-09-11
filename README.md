@@ -7,8 +7,9 @@ on the role of USB host.
 
 ```
 WaterRower S4 ──USB──► ESP32-S3 (ESPHome) ──MQTT──► broker ──► Tracker (Docker, web UI)
-                            │                                   ──► Home Assistant (native API)
-                            └── local web UI                     ──► Telegraf/InfluxDB (optional)
+                            │
+                            ├── native API ──► Home Assistant
+                            └── local web UI
 ```
 
 | Live | History & comparison |
@@ -62,12 +63,6 @@ works with any broker. `dashboard.yaml` is a ready-made dashboard for the
 entities the firmware exposes: live tiles, session summary, history,
 device controls.
 
-### Telegraf – `telegraf/`
-
-Optional alternative to the tracker for people who already run
-InfluxDB/Grafana: `waterrower.conf` feeds the MQTT topics into InfluxDB.
-A draft, not maintained as actively as the tracker.
-
 ### Shared
 
 | Path | Purpose |
@@ -85,12 +80,41 @@ A draft, not maintained as actively as the tracker.
              esphome/    │  Mosquitto App → MQTT broker               │
                  │       └────────────────────────────────────────────┘
                  └──MQTT──► broker ──► Tracker (docker/)  web UI :8080
-                                   └─► Telegraf (telegraf/) → InfluxDB
 ```
 
-The ESP publishes; the broker distributes; the tracker, Home Assistant
-and Telegraf each consume independently. The only channel back to the
-ESP is `waterrower/cmd/end_session`, used by the tracker's button.
+The ESP publishes; the broker distributes; the tracker and Home
+Assistant each consume independently. The only channel back to the ESP
+is `waterrower/cmd/end_session`, used by the tracker's button.
+
+## Setup order
+
+The detailed steps are in the sections below; this is the order that
+avoids backtracking.
+
+1. **Home Assistant groundwork** – install the ESPHome Device Builder and
+   the Mosquitto broker Apps (Settings → Apps) and create an MQTT user for
+   the ESP. Any other MQTT broker works too; only the dashboard needs HA
+   itself.
+2. **Solder bridge** – close the USB-OTG bridge on the ESP32-S3 board
+   ([Hardware](#hardware)) before it ever meets the S4. Flashing doesn't
+   need it, the S4 does.
+3. **Firmware** – add `esphome/waterrower.yaml` in the Device Builder,
+   fill in `secrets.yaml`, put your HA address into `allowed_origins`,
+   flash once over the COM port ([Firmware](#firmware)). HA discovers the
+   device; adopt it and assign an area.
+4. **Connect the S4** – ESP "USB" port → adapter → S4 cable. The ESPHome
+   log shows `S4 link up` and the entities fill in. Pull a few strokes to
+   see a session start.
+5. **Home Assistant dashboard** – import `homeassistant/dashboard.yaml`
+   ([Home Assistant dashboard](#home-assistant-dashboard)).
+6. **Tracker** – deploy `docker/docker-compose.yml` on your Docker host
+   (e.g. as a Dockge stack), set `TZ` and either the `MQTT_*` values or
+   use the settings form, open `http://<host>:8080/`
+   ([Tracker](#tracker-docker)). The footer shows the tracker and
+   firmware versions once MQTT is flowing.
+7. **Row** – a session starts on the first stroke; end it with the
+   tracker's "End session" button (or the HA reset button), which also
+   resets the monitor.
 
 ## Hardware
 
@@ -345,8 +369,6 @@ match: the `VERSION` file at the repo root and `substitutions.version` in
 - Workout presets from Home Assistant (`WSI`/`WSU` commands)
 - Switching the display unit (`DI` commands)
 - HTML recreation of the S4 display for Home Assistant
-- Telegraf connection to InfluxDB (`telegraf/waterrower.conf` is a draft,
-  optional alongside the Docker tracker)
 - Workout history in HA (e.g. embed the tracker via iframe)
 - Heart-rate sensing once a chest strap is acquired
 

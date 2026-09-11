@@ -350,8 +350,8 @@ script:
           id(s4_stroke_pull_25ms) = 0;
       - script.execute: publish_sensors
 
-  # All live values bundled incl. the session ID - for Telegraf/InfluxDB,
-  # so the ID is attached to the data point as a tag.
+  # All live values bundled incl. the session ID, one message per second
+  # during a session - this is what the tracker records.
   - id: publish_live_json
     then:
       - mqtt.publish_json:
