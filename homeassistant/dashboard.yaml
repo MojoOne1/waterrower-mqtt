@@ -36,6 +36,12 @@ views:
     show_state: true
     show_icon: true
     show_name: true
+  - type: entity
+    entity: sensor.waterrower_s4_status
+    name: Ergometer
+    show_state: true
+    show_icon: true
+    show_name: true
   sections:
   - type: grid
     column_span: 4
@@ -176,9 +182,15 @@ views:
         confirmation:
           text: End the running session and reset the monitor?
     - type: tile
+      entity: sensor.waterrower_s4_status
+      name: S4 status
+      icon: mdi:usb
+      grid_options:
+        columns: 6
+    - type: tile
       entity: switch.waterrower_usb_link
       name: USB link
-      icon: mdi:usb
+      icon: mdi:usb-port
       grid_options:
         columns: 4
     - type: tile
