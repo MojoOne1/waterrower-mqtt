@@ -33,6 +33,7 @@ const I18N = {
     connecting: "MQTT: verbinde …", connOff: "MQTT nicht verbunden", connOn: "MQTT verbunden", connLive: "Aufzeichnung läuft",
     connLost: "MQTT-Verbindung verloren, versuche erneut …",
     s4Unknown: "Ergometer: unbekannt", s4Off: "Ergometer aus", s4On: "Ergometer an", s4Usb: "Ergometer verbunden",
+    themeGroup: "Darstellung", themeAuto: "Auto", themeLight: "Hell", themeDark: "Dunkel",
     settingsTitle: "Verbindung zum MQTT-Broker",
     labelHost: "Adresse", labelPort: "Port", labelUser: "Benutzer", labelPassword: "Passwort", labelPrefix: "Topic-Präfix",
     phHost: "10.0.0.5 oder broker.local", phOptional: "optional",
@@ -63,6 +64,7 @@ const I18N = {
     connecting: "MQTT: connecting …", connOff: "MQTT not connected", connOn: "MQTT connected", connLive: "recording",
     connLost: "MQTT connection lost, retrying …",
     s4Unknown: "Ergometer: unknown", s4Off: "Ergometer off", s4On: "Ergometer on", s4Usb: "Ergometer connected",
+    themeGroup: "Appearance", themeAuto: "Auto", themeLight: "Light", themeDark: "Dark",
     settingsTitle: "MQTT broker connection",
     labelHost: "Address", labelPort: "Port", labelUser: "Username", labelPassword: "Password", labelPrefix: "Topic prefix",
     phHost: "10.0.0.5 or broker.local", phOptional: "optional",
@@ -101,6 +103,8 @@ function applyLang() {
   document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
   document.querySelectorAll("[data-i18n-html]").forEach((el) => { el.innerHTML = t(el.dataset.i18nHtml); });
   document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => { el.title = t(el.dataset.i18nTitle); });
+  document.querySelectorAll("[data-i18n-aria]").forEach((el) => { el.setAttribute("aria-label", t(el.dataset.i18nAria)); });
   document.querySelectorAll(".lang button").forEach((b) => {
     const on = b.dataset.lang === lang;
     b.classList.toggle("active", on);
@@ -119,6 +123,38 @@ async function setLang(next) {
   renderCompare();
 }
 document.querySelectorAll(".lang button").forEach((b) => { b.onclick = () => setLang(b.dataset.lang); });
+
+// --- Theme ---------------------------------------------------------------
+
+let theme = "auto";
+try { theme = localStorage.getItem("theme") || "auto"; } catch {}
+if (!["auto", "light", "dark"].includes(theme)) theme = "auto";
+
+function applyTheme() {
+  if (theme === "auto") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = theme;
+  document.querySelectorAll("#theme button").forEach((b) => {
+    const on = b.dataset.theme === theme;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", String(on));
+  });
+  readTheme();   // canvas colours come from the CSS variables
+}
+
+async function redrawCharts() {
+  await loadSessions();
+  if (selected) await selectSession(selected);
+  renderCompare();
+}
+
+async function setTheme(next) {
+  if (theme === next) return;
+  theme = next;
+  try { localStorage.setItem("theme", theme); } catch {}
+  applyTheme();
+  await redrawCharts();
+}
+document.querySelectorAll("#theme button").forEach((b) => { b.onclick = () => setTheme(b.dataset.theme); });
 
 // --- Helpers -----------------------------------------------------------
 
@@ -502,10 +538,9 @@ function drawBars(canvas, items, opts = {}) {
 window.addEventListener("resize", () => { if (selected) selectSession(selected); renderCompare(); });
 
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", async () => {
+  if (theme !== "auto") return;
   readTheme();
-  await loadSessions();
-  if (selected) await selectSession(selected);
-  renderCompare();
+  await redrawCharts();
 });
 
 // --- Settings ------------------------------------------------------------
@@ -561,6 +596,7 @@ async function loadVersion() {
 }
 
 // --- Start ---------------------------------------------------------------
+applyTheme();
 applyLang();
 connectStream();
 loadSessions();

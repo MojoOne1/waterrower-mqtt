@@ -32,8 +32,11 @@
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
+/* The dark tokens are declared twice on purpose: the media query follows
+   the operating system, the attribute wins when the viewer picks a mode
+   in the header. The :not() guard lets an explicit "light" beat OS dark. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
     --page: #101210;
     --paper: #1b1d1b;
@@ -65,6 +68,35 @@
   }
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #101210;
+  --paper: #1b1d1b;
+  --paper-2: #232622;
+  --housing: #2b2f33;
+  --housing-2: #191c1f;
+  --lcd: #8d9a5e;
+  --lcd-2: #7d8a51;
+  --lcd-ink: #0f160b;
+  --lcd-dim: rgba(15, 22, 11, 0.3);
+  --ink: #eceee7;
+  --ink-2: #b9bdb2;
+  --muted: #8d9187;
+  --line: #343830;
+  --grid: #2b2e29;
+  --accent: #d98b4a;
+  --accent-soft: rgba(217, 139, 74, 0.16);
+  --good: #3fae70;
+  --bad: #e07a63;
+  --live: #d95926;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-2: 0 6px 24px rgba(0, 0, 0, 0.55);
+}
+
 * { box-sizing: border-box; }
 html { font-size: 16px; }
 body {
@@ -94,13 +126,14 @@ a:hover { color: var(--accent); }
   padding: 1rem 1.5rem 0.6rem;
   max-width: 1100px; margin: 0 auto;
 }
-.top-right { display: flex; align-items: center; gap: 0.5rem; }
-.lang { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--paper); }
-.lang button { border: 0; border-radius: 0; padding: 0.25rem 0.55rem; font-size: 0.75rem; color: var(--muted); background: none; }
-.lang button + button { border-left: 1px solid var(--line); }
-.lang button:hover { color: var(--accent); }
-.lang button.active { background: var(--accent); color: #fff; }
-.lang button.active:hover { color: #fff; }
+.top-right { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--paper); }
+.seg button { border: 0; border-radius: 0; padding: 0.25rem 0.55rem; font-size: 0.75rem; line-height: 1.25; color: var(--muted); background: none; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button:hover { color: var(--accent); }
+.seg button.active { background: var(--accent); color: #fff; }
+.seg button.active:hover { color: #fff; }
+.theme button { font-size: 0.85rem; padding: 0.2rem 0.5rem; }
 
 .s4, .conn {
   display: flex; align-items: center; gap: 0.45rem;

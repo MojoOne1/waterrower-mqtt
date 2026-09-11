@@ -5,15 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WaterRower</title>
 <link rel="stylesheet" href="/static/style.css">
+<!-- Apply a stored theme before first paint, otherwise a dark choice on a
+     light system flashes light for a frame. -->
+<script>(function(){try{var s=localStorage.getItem("theme");if(s==="light"||s==="dark")document.documentElement.dataset.theme=s}catch(e){}})();</script>
 </head>
 <body>
 
 <header class="top">
   <h1>WaterRower</h1>
   <div class="top-right">
-    <div class="lang" role="group" aria-label="Language">
+    <div class="seg lang" role="group" aria-label="Language">
       <button type="button" data-lang="de">DE</button>
       <button type="button" data-lang="en">EN</button>
+    </div>
+    <div class="seg theme" id="theme" role="group" data-i18n-aria="themeGroup">
+      <button type="button" data-theme="auto" data-i18n="themeAuto" data-i18n-title="themeAuto"></button>
+      <button type="button" data-theme="light" data-i18n-title="themeLight" aria-hidden="false">☀</button>
+      <button type="button" data-theme="dark" data-i18n-title="themeDark">☾</button>
     </div>
     <span class="s4" id="s4"><span class="dot"></span><span id="s4-text" data-i18n="s4Unknown"></span></span>
     <button class="conn" id="conn" type="button" aria-expanded="false" aria-controls="settings">
