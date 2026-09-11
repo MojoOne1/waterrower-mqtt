@@ -135,6 +135,15 @@ async def stream():
                              headers={"Cache-Control": "no-cache"})
 
 
+@app.post("/api/session/end")
+def end_session():
+    """Asks the ESP to close the running session; it answers via session/last."""
+    if not state.connected:
+        raise HTTPException(503, "Not connected to the broker")
+    ingest.publish("cmd/end_session", "1")
+    return {"ok": True}
+
+
 # --- Sessions --------------------------------------------------------------
 
 @app.get("/api/sessions")

@@ -112,7 +112,9 @@ button.primary:hover { background: #000; }
 .cell .val.big { font-size: 3.6rem; }
 .cell.idle .val { color: var(--lcd-dim); }
 
-.session-line { margin: 0.6rem 0 0; font-size: 0.85rem; color: var(--muted); }
+.session-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 0.6rem; }
+.session-row button { font-size: 0.85rem; white-space: nowrap; }
+.session-line { margin: 0; font-size: 0.85rem; color: var(--muted); }
 .session-line strong { color: var(--text); font-weight: 600; }
 
 /* --- Work area ------------------------------------------------------- */

@@ -38,6 +38,7 @@ const I18N = {
     allSessions: "Alle Einheiten", chartTrend: "Distanz je Einheit",
     trendSum: (n, m, dur) => `${n} Einheiten · ${m} m · ${dur} gesamt`,
     noSamples: "Keine Messpunkte", avg: "Ø",
+    endSession: "Einheit beenden", confirmEnd: "Diese Einheit jetzt beenden?", endFailed: "Beenden fehlgeschlagen",
     fDistance: "Distanz", fDuration: "Dauer", fSplit: "Ø 500 m", fAvgSpeed: "Ø Geschwindigkeit", fPeak: "Spitze",
     fAvgSpm: "Ø Schlagfrequenz", fStrokes: "Schläge", fMeterPerStroke: "Meter je Schlag",
   },
@@ -66,6 +67,7 @@ const I18N = {
     allSessions: "All sessions", chartTrend: "Distance per session",
     trendSum: (n, m, dur) => `${n} sessions · ${m} m · ${dur} total`,
     noSamples: "No samples", avg: "avg",
+    endSession: "End session", confirmEnd: "End this session now?", endFailed: "Could not end the session",
     fDistance: "Distance", fDuration: "Duration", fSplit: "Avg 500 m", fAvgSpeed: "Avg speed", fPeak: "Peak",
     fAvgSpm: "Avg stroke rate", fStrokes: "Strokes", fMeterPerStroke: "Metres per stroke",
   },
@@ -153,6 +155,8 @@ function renderLive(snap) {
   conn.classList.toggle("live", snap.connected && active);
   $("conn-text").textContent = !snap.connected ? t("connOff") : active ? t("connLive") : t("connOn");
 
+  $("end").hidden = !(active && snap.session_id);
+
   const line = $("session-line");
   if (active && snap.session_id) {
     line.innerHTML = t("running", fmtWhen(snap.session_id)) + (v.speed ? t("split500", fmtSplit(v.speed)) : "");
@@ -162,6 +166,12 @@ function renderLive(snap) {
     line.textContent = t("waiting");
   }
 }
+
+$("end").onclick = async () => {
+  if (!confirm(t("confirmEnd"))) return;
+  const r = await fetch("/api/session/end", { method: "POST" });
+  if (!r.ok) alert((await r.json()).detail || t("endFailed"));
+};
 
 function connectStream() {
   const es = new EventSource("/api/stream");

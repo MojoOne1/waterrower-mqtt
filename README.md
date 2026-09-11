@@ -76,10 +76,16 @@ the YAML.
 - Polls the S4's memory addresses every second during a workout. While
   idle it sends nothing at all – every packet the S4 receives resets its
   auto power-off timer, so the monitor still switches itself off as usual.
-- Detects session start on the first stroke and session end after 30 s
-  without stroke or paddle packets from the S4 (the speed register is not
-  used for this – it keeps its last value after you stop). Each session
-  gets an ID that's a local timestamp (SNTP).
+- Detects session start on the first stroke. A session ends when the
+  tracker's "End session" button sends `waterrower/cmd/end_session`, or as
+  a safety net after a configurable time without stroke or paddle packets
+  from the S4 (default 5 min, "WaterRower Session Timeout" in Home
+  Assistant – the speed register isn't used for this, it keeps its last
+  value after you stop). Each session gets an ID that's a local timestamp
+  (SNTP).
+- Shows 0 for speed, stroke rate and watts as soon as the S4 reports no
+  rowing (its `PING`) – the monitor itself keeps displaying the last
+  stroke's values.
 - Publishes every value individually over MQTT, plus bundled as JSON on
   `waterrower/live` (with the session ID in the payload). At session end a
   retained summary goes out on `waterrower/session/last`.
@@ -138,6 +144,7 @@ Pitfalls that cost us time:
 | `waterrower/session_id` | Current session ID |
 | `waterrower/live` | All values as JSON, 1×/s during a workout |
 | `waterrower/session/last` | Summary of the last session (retained) |
+| `waterrower/cmd/end_session` | **To** the ESP: end the running session (any payload) |
 
 ## Tracker (Docker)
 
@@ -185,6 +192,7 @@ docker compose up -d --build
   picks up the summary from `waterrower/session/last`
 - Lists all sessions, shows speed and stroke-rate history, compares up to
   four sessions overlaid
+- "End session" button that closes the running session on the ESP
 - CSV export and per-session delete
 
 If the tracker is started after the ESP, the samples from before are
@@ -200,6 +208,7 @@ For your own analysis:
 | `GET` / `POST /api/settings` | Read / set broker settings (reconnects) |
 | `GET /api/live` | Current state |
 | `GET /api/stream` | Live updates as Server-Sent Events |
+| `POST /api/session/end` | End the running session (publishes `cmd/end_session`) |
 | `GET /api/sessions` | List of all sessions |
 | `GET /api/sessions/{id}` | Session with all samples |
 | `GET /api/sessions/{id}/export.csv` | Samples as CSV |

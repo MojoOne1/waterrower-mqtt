@@ -38,6 +38,15 @@ mqtt:
   discovery: false
   topic_prefix: waterrower
   reboot_timeout: 0s
+  on_message:
+    # Sent by the tracker's "End session" button.
+    - topic: waterrower/cmd/end_session
+      then:
+        - if:
+            condition:
+              lambda: return id(session_active);
+            then:
+              - script.execute: end_session
 
 time:
   - platform: sntp
@@ -74,6 +83,10 @@ globals:
     type: uint8_t
     restore_value: false
     initial_value: "0"
+  - id: rowing_idle             # S4 says "no rowing" (PING); per-stroke values read as 0
+    type: bool
+    restore_value: false
+    initial_value: "true"
 
   # --- Readings (addresses per "Water Rower S4 S5 USB Protocol Iss 1.04") ---
   - id: s4_distance_m           # 057/058 distance_low/hi
@@ -289,8 +302,10 @@ interval:
             id(publish_live_json).execute();
           }
 
-          // activity timeout -> end the session
-          if (id(session_active) && (millis() - id(last_activity_ms) > 30000)) {
+          // activity timeout -> end the session (safety net; normally the
+          // user ends it with the tracker's button)
+          uint32_t timeout_ms = (uint32_t) (id(wr_session_timeout).state * 60000.0f);
+          if (id(session_active) && (millis() - id(last_activity_ms) > timeout_ms)) {
             id(end_session).execute();
           }
 
@@ -312,9 +327,13 @@ interval:
     then:
       - lambda: |-
           auto bcd = [](int b) { return ((b >> 4) & 0x0F) * 10 + (b & 0x0F); };
-          auto mark_activity = [&]() {
+          // Any stroke/paddle packet keeps a session alive; only a real
+          // stroke start (SS) may begin one - residual water movement
+          // after a session shouldn't start the next.
+          auto mark_activity = [&](bool stroke_start) {
             id(last_activity_ms) = millis();
-            if (!id(session_active)) id(start_session).execute();
+            id(rowing_idle) = false;
+            if (stroke_start && !id(session_active)) id(start_session).execute();
           };
 
           while (id(s4_uart)->available()) {
@@ -335,7 +354,7 @@ interval:
             // Stroke events and paddle pulses are the S4's own activity
             // signals (auto-sent while rowing); PING means "no rowing".
             if (line == "SS" || line == "SE" || (line.size() == 3 && line[0] == 'P')) {
-              mark_activity();
+              mark_activity(line == "SS");
               continue;
             }
             if (line == "_WR_") {
@@ -345,14 +364,25 @@ interval:
               id(poll_s4_slow).execute();
               continue;
             }
-            if (line == "PING" || line == "OK") continue;
+            if (line == "PING") {
+              // Sent only while no rowing occurs. The S4 keeps showing the
+              // last stroke's speed/rate/watts, we'd rather show zeros.
+              if (millis() - id(last_activity_ms) > 2000) {
+                id(rowing_idle) = true;
+                id(s4_speed_cms) = 0;
+                id(s4_stroke_rate) = 0;
+                id(s4_watts) = 0;
+              }
+              continue;
+            }
+            if (line == "OK") continue;
 
             id(s4_last_raw_line) = line;
 
             if (line.size() >= 8 && line.compare(0, 3, "IDS") == 0) {
               std::string addr = line.substr(3, 3);
               int val = strtol(line.substr(6, 2).c_str(), nullptr, 16);
-              if (addr == "1A9") id(s4_stroke_rate) = val;
+              if (addr == "1A9") id(s4_stroke_rate) = id(rowing_idle) ? 0 : val;
               if (addr == "142") id(s4_stroke_avg_25ms) = val;
               if (addr == "143") id(s4_stroke_pull_25ms) = val;
               if (addr == "1A0") id(s4_heart_rate) = val;
@@ -363,10 +393,11 @@ interval:
               if (addr == "057") id(s4_distance_m) = val;
               if (addr == "140") id(s4_strokes) = val;
               if (addr == "081") id(s4_total_distance_m) = val;
-              if (addr == "088") id(s4_watts) = val;
-              // 14A holds its last value after rowing stops, so it must
-              // NOT count as activity - only SS/SE/Pxx do (see above).
-              if (addr == "14A") id(s4_speed_cms) = val;
+              if (addr == "088") id(s4_watts) = id(rowing_idle) ? 0 : val;
+              // 14A holds its last value after rowing stops: it must NOT
+              // count as activity (only SS/SE/Pxx do), and reads as 0
+              // while the S4 reports idle.
+              if (addr == "14A") id(s4_speed_cms) = id(rowing_idle) ? 0 : val;
 
             } else if (line.size() >= 12 && line.compare(0, 3, "IDT") == 0) {
               std::string addr = line.substr(3, 3);
@@ -545,6 +576,20 @@ text_sensor:
     id: wr_raw_debug
     lambda: return {id(s4_last_raw_line)};
     update_interval: 1s
+
+number:
+  # Minutes without a stroke after which a session ends on its own.
+  - platform: template
+    name: "WaterRower Session Timeout"
+    id: wr_session_timeout
+    entity_category: config
+    unit_of_measurement: "min"
+    min_value: 1
+    max_value: 60
+    step: 1
+    initial_value: 5
+    restore_value: true
+    optimistic: true
 
 button:
   # Spec p.5: RESET = like the power button on the monitor. A running

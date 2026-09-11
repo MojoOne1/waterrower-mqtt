@@ -95,6 +95,9 @@ class MqttIngest:
             self.last_error = str(e)
             log.warning("MQTT connection failed: %s", e)
 
+    def publish(self, subtopic: str, payload: str) -> None:
+        self.client.publish(f"{self.prefix}/{subtopic}", payload)
+
     def stop(self):
         if self.client is not None:
             try:
