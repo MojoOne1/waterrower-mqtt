@@ -145,7 +145,7 @@ Pitfalls that cost us time:
 | `waterrower/live` | All values as JSON, 1×/s during a workout |
 | `waterrower/session/last` | Summary of the last session (retained) |
 | `waterrower/firmware_version` | Firmware version (retained) |
-| `waterrower/cmd/end_session` | **To** the ESP: end the running session (any payload) |
+| `waterrower/cmd/end_session` | **To** the ESP: end the running session; payload `reset` also resets the monitor |
 
 ## Tracker (Docker)
 
@@ -193,7 +193,8 @@ docker compose up -d --build
   picks up the summary from `waterrower/session/last`
 - Lists all sessions, shows speed and stroke-rate history, compares up to
   four sessions overlaid
-- "End session" button that closes the running session on the ESP
+- "End session" button that closes the running session on the ESP and
+  resets the monitor (like its power button)
 - CSV export and per-session delete
 
 If the tracker is started after the ESP, the samples from before are
@@ -210,7 +211,7 @@ For your own analysis:
 | `GET /api/version` | Tracker version and git commit |
 | `GET /api/live` | Current state |
 | `GET /api/stream` | Live updates as Server-Sent Events |
-| `POST /api/session/end` | End the running session (publishes `cmd/end_session`) |
+| `POST /api/session/end` | End the running session and reset the monitor (publishes `cmd/end_session` = `reset`) |
 | `GET /api/sessions` | List of all sessions |
 | `GET /api/sessions/{id}` | Session with all samples |
 | `GET /api/sessions/{id}/export.csv` | Samples as CSV |

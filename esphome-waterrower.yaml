@@ -47,14 +47,21 @@ mqtt:
   topic_prefix: waterrower
   reboot_timeout: 0s
   on_message:
-    # Sent by the tracker's "End session" button.
+    # Sent by the tracker's "End session" button (payload "reset" also
+    # resets the monitor); any other payload just closes the session.
     - topic: waterrower/cmd/end_session
       then:
         - if:
             condition:
-              lambda: return id(session_active);
+              lambda: return x == "reset";
             then:
-              - script.execute: end_session
+              - script.execute: s4_reset
+            else:
+              - if:
+                  condition:
+                    lambda: return id(session_active);
+                  then:
+                    - script.execute: end_session
 
 time:
   - platform: sntp
@@ -269,6 +276,32 @@ script:
           retain: true
           payload: !lambda return id(last_summary_json);
       - script.execute: poll_s4_slow   # final lifetime distance
+
+  # Spec p.5: RESET = like the power button on the monitor. A running
+  # session is closed first so the summary isn't lost. Our copies of the
+  # display values are cleared too - nothing polls them while idle, so
+  # they'd otherwise stay stale until the next session.
+  - id: s4_reset
+    then:
+      - if:
+          condition:
+            lambda: return id(session_active);
+          then:
+            - script.execute: end_session
+            - script.wait: end_session
+      - delay: 50ms
+      - uart.write:
+          id: s4_uart
+          data: "RESET\r\n"
+      - lambda: |-
+          id(s4_distance_m) = 0;
+          id(s4_elapsed_s) = 0;
+          id(s4_strokes) = 0;
+          id(s4_speed_cms) = 0;
+          id(s4_stroke_rate) = 0;
+          id(s4_watts) = 0;
+          id(s4_stroke_avg_25ms) = 0;
+          id(s4_stroke_pull_25ms) = 0;
 
   # All live values bundled incl. the session ID - for Telegraf/InfluxDB,
   # so the ID is attached to the data point as a tag.
@@ -614,17 +647,8 @@ number:
     optimistic: true
 
 button:
-  # Spec p.5: RESET = like the power button on the monitor. A running
-  # session is closed cleanly first so the summary isn't lost.
   - platform: template
     name: "WaterRower Reset"
     id: wr_reset
     on_press:
-      - if:
-          condition:
-            lambda: return id(session_active);
-          then:
-            - script.execute: end_session
-      - uart.write:
-          id: s4_uart
-          data: "RESET\r\n"
+      - script.execute: s4_reset

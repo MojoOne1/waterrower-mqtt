@@ -144,10 +144,11 @@ async def stream():
 
 @app.post("/api/session/end")
 def end_session():
-    """Asks the ESP to close the running session; it answers via session/last."""
+    """Asks the ESP to close the running session and reset the monitor;
+    the ESP answers via session/last."""
     if not state.connected:
         raise HTTPException(503, "Not connected to the broker")
-    ingest.publish("cmd/end_session", "1")
+    ingest.publish("cmd/end_session", "reset")
     return {"ok": True}
 
 
