@@ -468,6 +468,13 @@ comment in that file walks through connecting one to the other.
 
 ### Adding your friends
 
+The bootstrap `admin` account runs the arena; it does not row in it. An
+admin creates athletes, hands out invitations and hosts races, but cannot
+join one, and does not appear in the live tiles, the totals or the
+leaderboards – an account with no ergometer behind it would otherwise sit
+in every table at nought. **Make yourself an athlete account too**, and keep
+`admin` for the administration.
+
 Under **Konto / Account**:
 
 1. *Athlet anlegen* – a handle and a display name. You get a one-time
@@ -482,6 +489,11 @@ Under **Konto / Account**:
 compose file, exactly like the `MQTT_*` variables do: they are defaults,
 and anything saved through the form lands in `data/settings.json` and wins
 from then on. Pick one or the other rather than setting both.
+
+The **Admin** checkbox beside each athlete moves the role around. The last
+admin cannot give it up – somebody has to be able to hand it back. Promoting
+someone takes them out of a lobby they are waiting in, but never out of a
+race already being rowed.
 
 Lane colours are handed out automatically and are used consistently for
 that athlete – in the live tiles, the charts, the lanes and the tables.

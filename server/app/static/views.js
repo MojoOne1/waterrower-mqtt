@@ -61,7 +61,9 @@ function paintLiveCards() {
   if (!host) return;
   host.innerHTML = "";
   const rowing = [];
-  for (const a of STATE.athletes) {
+  // Admins run the arena rather than row in it, so they get no tile - an
+  // account with no tracker would sit here as a permanently offline card.
+  for (const a of STATE.athletes.filter((x) => !x.is_admin)) {
     const live = STATE.live.get(a.id) || {};
     host.appendChild(liveCard(a, live));
     if (live.rowing) rowing.push(a);
@@ -586,7 +588,28 @@ async function paintAdmin() {
     sw.style.background = a.color;
     li.appendChild(sw);
     li.appendChild(el("strong", null, a.display_name));
-    li.appendChild(el("span", "sub", a.name + (a.is_admin ? " · admin" : "")));
+    li.appendChild(el("span", "sub", a.name));
+
+    const role = el("label", "role");
+    const box = el("input");
+    box.type = "checkbox";
+    box.checked = !!a.is_admin;
+    box.onchange = async () => {
+      try {
+        await api(`/api/athletes/${a.id}`, {
+          method: "PATCH",
+          body: { display_name: a.display_name, color: a.color, is_admin: box.checked },
+        });
+        STATE.athletes = await api("/api/athletes");
+        paintAdmin();
+      } catch (err) {
+        box.checked = !box.checked;
+        alert(err.message);
+      }
+    };
+    role.appendChild(box);
+    role.appendChild(el("span", null, t("roleAdmin")));
+    li.appendChild(role);
 
     const invite = el("a", null, t("btnInvite"));
     invite.href = "#";

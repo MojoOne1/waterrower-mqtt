@@ -171,7 +171,9 @@ function paintLobby(host, r) {
 
   const bar = el("div", "actions-bar");
   const mine = myLane(r);
-  if (!mine) {
+  if (!mine && STATE.me.is_admin) {
+    card.appendChild(el("p", "hint", t("adminNoRace")));
+  } else if (!mine) {
     const join = el("button", "primary", t("btnJoinRace"));
     join.onclick = () => raceAction("/api/race/join");
     bar.appendChild(join);
@@ -325,15 +327,35 @@ function laneRow(r, lane, pos) {
     d.appendChild(el("span", "lbl", l));
     stats.appendChild(d);
   };
-  stat(fmtMetres(lane.progress), t("colDistance"));
-  stat(lane.split_500, "/500 m");
-  stat(fmtInt(lane.spm), "s/min");
-  stat(fmtInt(lane.watts), "W");
-  if (r.mode === "distance" && lane.eta_s != null && !lane.finished) {
-    stat(fmtDur(lane.eta_s), t("toGo"));
+  if (lane.finished) {
+    // Live values would stay frozen at whatever they were on the line,
+    // which reads as if they were still pulling 1:52 while rowing it out.
+    // What the race produced is the honest answer, and it is already here.
+    // The time itself is already the badge next to the name.
+    stat(fmtMetres(lane.progress), t("colDistance"));
+    stat(raceSplit(r, lane), "Ø 500 m");
+    stat(lane.avg_spm ? lane.avg_spm.toFixed(1) : "–", "Ø s/min");
+    stat(lane.avg_watts ? Math.round(lane.avg_watts) : "–", "Ø W");
+  } else {
+    stat(fmtMetres(lane.progress), t("colDistance"));
+    stat(lane.split_500, "/500 m");
+    stat(fmtInt(lane.spm), "s/min");
+    stat(fmtInt(lane.watts), "W");
+    if (r.mode === "distance" && lane.eta_s != null) stat(fmtDur(lane.eta_s), t("toGo"));
   }
   row.appendChild(stats);
   return row;
+}
+
+/* The average split over the race itself: what was rowed, over how long.
+   A lane with no time of its own (did not finish a distance race) gets no
+   split rather than one measured against the whole race. */
+function raceSplit(r, lane) {
+  const seconds = lane.time_s != null ? lane.time_s
+    : (r.mode === "time" ? r.elapsed : null);
+  const metres = lane.finished && r.mode === "distance" ? r.target : lane.progress;
+  if (!metres || !seconds) return "--:--";
+  return fmtSplit(metres / seconds);
 }
 
 function maxProgress(r) {
@@ -348,7 +370,8 @@ function paintResult(host, r) {
 
   const table = el("table", "table");
   const head = el("tr");
-  [t("place"), " ", r.mode === "distance" ? t("colTime") : t("colDistance"), "Ø s/min", "Ø W"]
+  [t("place"), " ", r.mode === "distance" ? t("colTime") : t("colDistance"),
+   "Ø 500 m", "Ø s/min", "Ø W"]
     .forEach((h) => head.appendChild(el("th", null, h)));
   table.appendChild(el("thead")).appendChild(head);
   const body = el("tbody");
@@ -363,6 +386,7 @@ function paintResult(host, r) {
     tr.appendChild(el("td", null, r.mode === "distance"
       ? (lane.time_s != null ? fmtTime(lane.time_s) : t("dnf"))
       : fmtMetres(lane.progress)));
+    tr.appendChild(el("td", null, raceSplit(r, lane)));
     tr.appendChild(el("td", null, lane.avg_spm ? lane.avg_spm.toFixed(1) : "–"));
     tr.appendChild(el("td", null, lane.avg_watts ? Math.round(lane.avg_watts) : "–"));
     body.appendChild(tr);

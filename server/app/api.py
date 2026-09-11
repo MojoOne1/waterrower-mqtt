@@ -54,6 +54,7 @@ class NewAthlete(BaseModel):
 class AthletePatch(BaseModel):
     display_name: str = Field(min_length=1, max_length=40)
     color: str = ""
+    is_admin: bool | None = None        # admins only; None leaves it alone
 
 
 class NewToken(BaseModel):
@@ -209,6 +210,15 @@ def patch_athlete(athlete_id: int, body: AthletePatch,
         raise HTTPException(404, "No such athlete")
     color = body.color.strip() or target["color"]
     db.update_athlete(athlete_id, body.display_name.strip(), color)
+    if body.is_admin is not None and bool(target["is_admin"]) != body.is_admin:
+        if not athlete["is_admin"]:
+            raise HTTPException(403, "Admins only")
+        if not body.is_admin and db.count_admins() <= 1:
+            # Losing the last admin means nobody can hand the role back.
+            raise HTTPException(409, "Someone has to stay an admin")
+        db.set_admin(athlete_id, body.is_admin)
+        if body.is_admin:
+            races.drop_athlete(athlete_id)      # admins do not sit in races
     return auth.public_athlete(db.athlete(athlete_id))
 
 
@@ -357,6 +367,8 @@ def join_race(athlete: dict = Depends(auth.current_athlete)):
         races.join(athlete)
     except ValueError as e:
         raise HTTPException(409, str(e))
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
     return races.active().public()
 
 

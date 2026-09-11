@@ -135,6 +135,7 @@ class Race:
         self.created_by = row["created_by"]
         self.lanes: list[Lane] = []
         self.started_at: float | None = None
+        self.ended_at: float | None = None
         self.countdown_ends: float | None = None
         self.first_finish: float | None = None
 
@@ -146,7 +147,12 @@ class Race:
 
     @property
     def elapsed(self) -> float:
-        return time.time() - self.started_at if self.started_at else 0.0
+        """Stops at the finish - otherwise anyone fetching the race later
+        gets a duration that keeps growing, and every average drawn from it
+        quietly drifts."""
+        if not self.started_at:
+            return 0.0
+        return (self.ended_at or time.time()) - self.started_at
 
     def leader(self) -> Lane | None:
         if not self.lanes:
@@ -210,12 +216,17 @@ class RaceEngine:
         race_id = self.db.create_race(name, mode, target, athlete["id"])
         self.race = Race({"id": race_id, "name": name, "mode": mode,
                           "target": target, "created_by": athlete["id"]})
-        self.join(athlete)
+        # An admin sets a race up without being in it; everyone else is in
+        # the race they just made - nobody creates one to watch.
+        if not athlete["is_admin"]:
+            self.join(athlete)
         self._publish()
         return self.race
 
     def join(self, athlete: dict) -> Lane:
         r = self._lobby()
+        if athlete["is_admin"]:
+            raise PermissionError("Admins run the arena, they do not row in it")
         existing = r.lane_of(athlete["id"])
         if existing:
             return existing
@@ -248,6 +259,19 @@ class RaceEngine:
         r.lanes.remove(lane)
         self.db.remove_entry(r.id, entry_id)
         self._publish()
+
+    def drop_athlete(self, athlete_id: int) -> None:
+        """Take someone out of the lobby - they were just made an admin, or
+        deleted. Mid-race they stay: pulling a lane out from under a running
+        race would rewrite a result that is already being rowed."""
+        r = self.race
+        if not r or r.state != "lobby":
+            return
+        lane = r.lane_of(athlete_id)
+        if lane:
+            r.lanes.remove(lane)
+            self.db.remove_entry(r.id, lane.entry_id)
+            self._publish()
 
     def set_ready(self, athlete: dict, ready: bool) -> None:
         r = self._lobby()
@@ -404,6 +428,7 @@ class RaceEngine:
 
         r.state = "finished"
         now = time.time()
+        r.ended_at = now
         for lane in r.lanes:
             if not lane.finished:
                 lane.finish_t = None if r.mode == "distance" else r.elapsed

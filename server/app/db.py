@@ -192,6 +192,15 @@ class Database:
                 (code, athlete_id),
             )
 
+    def set_admin(self, athlete_id: int, is_admin: bool) -> None:
+        with self._lock, self._conn() as c:
+            c.execute("UPDATE athletes SET is_admin = ? WHERE id = ?",
+                      (int(is_admin), athlete_id))
+
+    def count_admins(self) -> int:
+        with self._conn() as c:
+            return c.execute("SELECT COUNT(*) FROM athletes WHERE is_admin = 1").fetchone()[0]
+
     def delete_athlete(self, athlete_id: int) -> None:
         with self._lock, self._conn() as c:
             c.execute("DELETE FROM athletes WHERE id = ?", (athlete_id,))
@@ -435,7 +444,8 @@ class Database:
                           s.started_at, a.display_name, a.color
                    FROM session_records r
                    JOIN sessions s ON s.id = r.session_id
-                   JOIN athletes a ON a.id = s.athlete_id"""
+                   JOIN athletes a ON a.id = s.athlete_id
+                   WHERE a.is_admin = 0"""
             ).fetchall()
         return [dict(r) for r in rows]
 
@@ -456,7 +466,8 @@ class Database:
         if since:
             sql += " AND s.started_at >= ?"
             args.append(since)
-        sql += " GROUP BY a.id ORDER BY distance_m DESC"
+        # Admins administer; they are not in the standings.
+        sql += " WHERE a.is_admin = 0 GROUP BY a.id ORDER BY distance_m DESC"
         with self._conn() as c:
             rows = c.execute(sql, args).fetchall()
         return [dict(r) for r in rows]
