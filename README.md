@@ -11,28 +11,86 @@ WaterRower S4 ──USB──► ESP32-S3 (ESPHome) ──MQTT──► broker �
                             └── local web UI                     ──► Telegraf/InfluxDB (optional)
 ```
 
-Two parts, usable independently:
-
-- **Firmware** (`esphome/`) – ESPHome config for the ESP32-S3.
-  Talks the S4's serial protocol, detects sessions, publishes to MQTT and
-  exposes everything as Home Assistant entities.
-- **Tracker** (`docker/`) – a single container that records every session
-  from MQTT into SQLite and serves a web UI: live display, per-session
-  charts, session comparison, CSV export.
-
 | Live | History & comparison |
 |---|---|
 | ![Live view](docs/screenshots/live.png) | ![Session history](docs/screenshots/history.png) |
 
-## Repository layout
+## Components
 
-| Folder | Content |
+The project is split into independent components, one folder each. The
+firmware is the only mandatory part; everything else consumes what it
+publishes over MQTT or the Home Assistant API.
+
+### Firmware – `esphome/`
+
+The ESPHome configuration for the ESP32-S3 that sits at the rowing
+machine. It is the USB host for the S4 monitor, speaks the S4's serial
+protocol, detects sessions, and publishes everything twice: as Home
+Assistant entities over ESPHome's native API and as MQTT topics for the
+other components. Compiled and flashed with the ESPHome dashboard (or the
+CLI); the ESP then runs on its own.
+
+| File | Purpose |
 |---|---|
-| `esphome/` | Firmware config for the ESP32-S3 (`waterrower.yaml`, `secrets.yaml.example`) |
-| `docker/` | The tracker: source, Dockerfile, compose files |
-| `homeassistant/` | Ready-made Home Assistant dashboard |
-| `telegraf/` | Optional Telegraf → InfluxDB config |
-| `docs/` | Screenshots |
+| `waterrower.yaml` | The complete firmware: USB handling, protocol parsing, session logic, entities, MQTT |
+| `secrets.yaml.example` | Template for `secrets.yaml` (Wi-Fi and MQTT credentials, never committed) |
+
+### Tracker – `docker/`
+
+A self-contained web app that turns the MQTT stream into a training log.
+It subscribes to the broker, stores every session with one sample per
+second in SQLite, and serves a web UI with the live display, per-session
+charts, session comparison, CSV export and an "End session" button. Runs
+as a single container from a prebuilt image; needs nothing but a
+reachable MQTT broker. Home Assistant is not required for it.
+
+| File | Purpose |
+|---|---|
+| `docker-compose.yml` | Deploy: pulls the published image – the only file a host needs |
+| `docker-compose.build.yml` | Develop: builds the image from this folder |
+| `Dockerfile`, `requirements.txt` | Image definition (Python 3.12, FastAPI, paho-mqtt) |
+| `app/main.py` | HTTP API, Server-Sent Events stream, static files |
+| `app/mqtt_ingest.py` | MQTT client, live state, session ingestion |
+| `app/db.py` | SQLite schema and queries |
+| `app/static/` | The UI: `index.html`, `app.js` (charts, i18n), `style.css` |
+
+### Home Assistant – `homeassistant/`
+
+Optional. Home Assistant is the natural home for the ESPHome dashboard
+and typically also runs the MQTT broker (Mosquitto App), but the firmware
+works with any broker. `dashboard.yaml` is a ready-made dashboard for the
+entities the firmware exposes: live tiles, session summary, history,
+device controls.
+
+### Telegraf – `telegraf/`
+
+Optional alternative to the tracker for people who already run
+InfluxDB/Grafana: `waterrower.conf` feeds the MQTT topics into InfluxDB.
+A draft, not maintained as actively as the tracker.
+
+### Shared
+
+| Path | Purpose |
+|---|---|
+| `VERSION` | Project version, mirrored in the firmware's `substitutions.version` (see [Versioning](#versioning)) |
+| `.github/workflows/docker-publish.yml` | Builds and publishes the tracker image on every push |
+| `docs/` | Screenshots used in this README |
+
+### How they fit together
+
+```
+                         ┌────────────────────────────────────────────┐
+                         │  Home Assistant (optional)                 │
+ S4 ──USB──► ESP32-S3 ───┤  native API → entities, dashboard.yaml     │
+             esphome/    │  Mosquitto App → MQTT broker               │
+                 │       └────────────────────────────────────────────┘
+                 └──MQTT──► broker ──► Tracker (docker/)  web UI :8080
+                                   └─► Telegraf (telegraf/) → InfluxDB
+```
+
+The ESP publishes; the broker distributes; the tracker, Home Assistant
+and Telegraf each consume independently. The only channel back to the
+ESP is `waterrower/cmd/end_session`, used by the tracker's button.
 
 ## Hardware
 
