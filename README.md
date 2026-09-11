@@ -1,4 +1,4 @@
-# WaterRower S4 → ESPHome Bridge
+# waterrower-mqtt
 
 Liest den WaterRower Series IV Performance Monitor über USB aus und stellt
 die Werte in Home Assistant, per MQTT und über eine lokale Weboberfläche
