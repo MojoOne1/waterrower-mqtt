@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 import api
 import auth
@@ -113,6 +113,38 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="WaterRower Arena", version=config.APP_VERSION, lifespan=lifespan)
+
+# Everything the page needs it serves itself, so the policy can say "self"
+# and nothing else. That is the second lock on cross-site scripting: even
+# if a value slipped into the page as markup, an injected script has no
+# origin it is allowed to load from and no inline execution. frame-ancestors
+# keeps the arena out of somebody else's iframe.
+CSP = ("default-src 'self'; script-src 'self'; style-src 'self'; "
+       "img-src 'self' data:; font-src 'self'; connect-src 'self'; "
+       "form-action 'self'; base-uri 'none'; frame-ancestors 'none'; "
+       "object-src 'none'")
+
+MAX_BODY = 1 << 20      # 1 MiB; nothing the API takes comes near it
+
+
+@app.middleware("http")
+async def guard(request, call_next):
+    length = request.headers.get("content-length")
+    if length and length.isdigit() and int(length) > MAX_BODY:
+        return JSONResponse({"detail": "Request too large"}, status_code=413)
+    response = await call_next(request)
+    response.headers["Content-Security-Policy"] = CSP
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    if config.SECURE_COOKIES:
+        # Only when TLS is actually in front, or a plain-HTTP test install
+        # would lock itself out of its own browser for a year.
+        response.headers["Strict-Transport-Security"] = "max-age=31536000"
+    return response
+
+
 app.include_router(api.router)
 
 

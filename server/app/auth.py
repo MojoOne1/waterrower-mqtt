@@ -8,6 +8,7 @@ whole thing costs one import and no dependency.
 import hashlib
 import hmac
 import secrets
+import threading
 import time
 
 from fastapi import Depends, HTTPException, Request
@@ -15,7 +16,6 @@ from fastapi import Depends, HTTPException, Request
 import config
 
 COOKIE = "arena_session"
-_SCRYPT = dict(n=2 ** 14, r=8, p=1, dklen=32)
 
 
 class Throttle:
@@ -137,23 +137,80 @@ def client_ip(request: Request) -> str:
     return request.client.host if request.client else "?"
 
 
+# OWASP's floor for scrypt is n=2**17; that is 128 MiB *per verification*,
+# and FastAPI runs sync endpoints in a forty-wide thread pool, so a burst of
+# sign-ins would take the container out. n=2**16 with at most two hashes at
+# a time caps it at 128 MiB whatever arrives, and the lockout policy handles
+# the rest. Raising these later is now possible because the parameters are
+# written into the hash: verification uses whatever a hash was made with,
+# and a password is re-hashed with the current ones on the next sign-in.
+_SCRYPT = {"n": 2 ** 16, "r": 8, "p": 1}
+_DKLEN = 32
+_HASH_SLOTS = threading.Semaphore(2)
+
+
+def _scrypt(password: str, salt: bytes, n: int, r: int, p: int) -> str:
+    # maxmem has to be given: OpenSSL's default ceiling is 32 MiB and these
+    # parameters need four times that.
+    need = 128 * n * r + (1 << 20)
+    with _HASH_SLOTS:
+        return hashlib.scrypt(password.encode(), salt=salt, n=n, r=r, p=p,
+                              dklen=_DKLEN, maxmem=need).hex()
+
+
 def hash_password(password: str) -> str:
     salt = secrets.token_bytes(16)
-    dk = hashlib.scrypt(password.encode(), salt=salt, **_SCRYPT)
-    return f"scrypt${salt.hex()}${dk.hex()}"
+    dk = _scrypt(password, salt, **_SCRYPT)
+    return f"scrypt${_SCRYPT['n']}${_SCRYPT['r']}${_SCRYPT['p']}${salt.hex()}${dk}"
+
+
+def _parse(stored: str) -> tuple[int, int, int, bytes, str] | None:
+    parts = stored.split("$")
+    if len(parts) == 6 and parts[0] == "scrypt":
+        try:
+            return (int(parts[1]), int(parts[2]), int(parts[3]),
+                    bytes.fromhex(parts[4]), parts[5])
+        except ValueError:
+            return None
+    # The first release wrote scrypt$salt$hash with the parameters implied.
+    if len(parts) == 3 and parts[0] == "scrypt":
+        try:
+            return 2 ** 14, 8, 1, bytes.fromhex(parts[1]), parts[2]
+        except ValueError:
+            return None
+    return None
 
 
 def verify_password(password: str, stored: str | None) -> bool:
     if not stored:
         return False
-    try:
-        algo, salt_hex, dk_hex = stored.split("$")
-    except ValueError:
+    parsed = _parse(stored)
+    if not parsed:
         return False
-    if algo != "scrypt":
+    n, r, p, salt, expected = parsed
+    return hmac.compare_digest(_scrypt(password, salt, n, r, p), expected)
+
+
+def needs_rehash(stored: str | None) -> bool:
+    """True when a stored hash was made with weaker parameters than today's."""
+    parsed = _parse(stored) if stored else None
+    if not parsed:
         return False
-    dk = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt_hex), **_SCRYPT)
-    return hmac.compare_digest(dk.hex(), dk_hex)
+    n, r, p, _, _ = parsed
+    return (n, r, p) != (_SCRYPT["n"], _SCRYPT["r"], _SCRYPT["p"])
+
+
+# Verifying against this costs the same as verifying against a real hash, so
+# a sign-in for an account that does not exist takes as long as one that
+# does. Without it the response time says which names are real.
+_DUMMY_HASH = hash_password(secrets.token_urlsafe(16))
+
+
+def verify_or_waste_time(password: str, stored: str | None) -> bool:
+    if stored:
+        return verify_password(password, stored)
+    verify_password(password, _DUMMY_HASH)
+    return False
 
 
 def new_token() -> str:

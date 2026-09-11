@@ -30,12 +30,13 @@ def init(database, live_hub, race_engine) -> None:
 # --- Models ----------------------------------------------------------------
 
 class Login(BaseModel):
-    name: str
-    password: str
+    # Bounded so a huge body cannot be fed to the hash function.
+    name: str = Field(max_length=64)
+    password: str = Field(max_length=256)
 
 
 class JoinInvite(BaseModel):
-    code: str
+    code: str = Field(max_length=128)
     # Strength is checked in the endpoint so the reason comes back as a
     # sentence rather than as a validation error about a string length.
     password: str
@@ -92,20 +93,24 @@ class GhostRef(BaseModel):
 # --- Session and account ---------------------------------------------------
 
 @router.get("/api/version")
-def version():
+def version(_: dict = Depends(auth.current_athlete)):
+    """Behind the sign-in: the footer wants it, and a version number is a
+    free hint about which bugs a server still has."""
     return {"version": config.APP_VERSION, "commit": config.GIT_COMMIT}
 
 
 @router.get("/api/health")
 def health():
-    """For the container healthcheck: no auth, and it touches the database
-    so a broken volume shows up as unhealthy rather than as a blank page."""
+    """For the container healthcheck. Unauthenticated, and reachable from
+    the internet through the tunnel, so it answers yes or no and nothing
+    else - no counts, no version, and no exception text to read the
+    innards from."""
     try:
-        athletes = db.count_athletes()
-    except Exception as e:
-        raise HTTPException(503, f"database unavailable: {e}")
-    return {"ok": True, "athletes": athletes, "uplinks": len(hub.uplinks),
-            "version": config.APP_VERSION}
+        db.count_athletes()
+    except Exception:
+        log.exception("Health check failed")
+        raise HTTPException(503, "unavailable")
+    return {"ok": True}
 
 
 @router.get("/api/me")
@@ -151,7 +156,10 @@ def login(body: Login, request: Request, response: Response):
                             headers={"Retry-After": str(int(wait))})
 
     athlete = db.athlete_by_name(name)
-    ok = auth.verify_password(body.password, athlete["password_hash"] if athlete else None)
+    # Wastes the same time on a name that does not exist, so the response
+    # time does not say which accounts are real.
+    ok = auth.verify_or_waste_time(body.password,
+                                   athlete["password_hash"] if athlete else None)
     if not ok:
         BY_IP.record(ip)
         BY_NAME.record(name)
@@ -161,6 +169,11 @@ def login(body: Login, request: Request, response: Response):
         raise HTTPException(401, "Wrong name or password")
     BY_IP.clear(ip)
     BY_NAME.clear(name)
+    if auth.needs_rehash(athlete["password_hash"]):
+        # Their password is in hand exactly once: now. Store it again with
+        # today's parameters so old accounts catch up without a reset.
+        db.set_password(athlete["id"], auth.hash_password(body.password))
+        log.info("Re-hashed the stored password of %r", athlete["name"])
     token = auth.new_token()
     db.add_web_session(auth.token_hash(token), athlete["id"], config.SESSION_DAYS * 86400)
     auth.set_cookie(response, token)

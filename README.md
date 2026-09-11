@@ -51,6 +51,8 @@ reachable MQTT broker. Home Assistant is not required for it.
 | File | Purpose |
 |---|---|
 | `docker-compose.yml` | Deploy: pulls the published image – the only file a host needs |
+| `docker-compose.mosquitto.yml` | Deploy with a broker: the tracker plus its own Mosquitto, for a house without Home Assistant |
+| `mosquitto/config/mosquitto.conf` | That broker's configuration |
 | `docker-compose.build.yml` | Develop: builds the image from this folder |
 | `Dockerfile`, `requirements.txt` | Image definition (Python 3.12, FastAPI, paho-mqtt) |
 | `app/main.py` | HTTP API, Server-Sent Events stream, static files |
@@ -158,7 +160,8 @@ avoids backtracking.
 |---|---|
 | ESP32-S3-DevKitC-1 (clone, N16R8) | Two USB-C ports: **COM** (UART, flashing/power) and **USB** (native OTG port). The exact board used: [ESP32-S3-WROOM-1 N16R8 DevKitC-1 on amazon.de](https://www.amazon.de/dp/B0FYFF8CB2/) – any DevKitC-1 clone with two USB-C ports and the USB-OTG solder bridge should do |
 | WaterRower S4 Performance Monitor | Battery-powered (self-powered), USB Mini port |
-| USB-C-to-USB-A adapter | Between the ESP32's "USB" port and the S4 cable |
+| USB-C-to-Mini-USB adapter | Between a USB-C cable and the S4's Mini-USB socket. The one used: [4x USB-C female to Mini-USB male on amazon.de](https://www.amazon.de/dp/B0G4BYT22N) – replaces the S4's supplied cable, and USB-C is what everyone has lying around now |
+| USB-C cable | From the ESP's **USB** port to that adapter |
 | USB power supply | On the **COM** port |
 
 ### The USB-OTG solder bridge
@@ -175,10 +178,14 @@ separate power sources at the same time.
 ### Wiring
 
 ```
-USB power supply ──► [COM]  ESP32-S3  [USB] ──► USB-C/A adapter ──► S4 cable ──► S4
+USB power supply ──► [COM]  ESP32-S3  [USB] ──USB-C──► C-to-Mini adapter ──► S4
                                        ▲
                               (USB-OTG solder bridge closed)
 ```
+
+A USB-C-to-USB-A adapter plus the S4's own cable works just as well; the
+Mini-USB adapter simply saves a link in the chain, and nobody has USB-A
+cables any more.
 
 ## Firmware
 
@@ -192,11 +199,51 @@ the YAML.
 1. Copy `esphome/secrets.yaml.example` to `esphome/secrets.yaml` and fill
    it in.
 2. In `esphome/waterrower.yaml`, under `web_server.allowed_origins`, enter
-   the address of your Home Assistant instance.
-3. First flash over the **COM** port (web flasher at web.esphome.io or the
-   ESPHome dashboard). If no serial port shows up: hold BOOT, plug in the
-   cable, release BOOT.
+   the address of your Home Assistant instance – or delete the key if you
+   have none.
+3. First flash over the **COM** port. If no serial port shows up: hold
+   BOOT, plug in the cable, release BOOT.
 4. After that everything runs over OTA – no cable needed anymore.
+
+#### Flashing without Home Assistant
+
+The ESPHome Device Builder is an add-on, not a requirement. The same
+configuration compiles from the command line, and the ESP does not care
+which of the two built it:
+
+```bash
+pip install esphome
+```
+
+```bash
+cd esphome && esphome run waterrower.yaml
+```
+
+`run` compiles, asks which serial port to use, flashes, and then shows the
+log – the same log the dashboard shows, which is where `S4 link up`
+appears. Later changes go over the air from the same folder; pick the
+device's address instead of a port when it asks.
+
+Two things to know when going this way:
+
+- Without Home Assistant the `api:` block has nothing to talk to. Leave it
+  in – it is harmless and costs nothing – or delete it along with
+  `web_server.allowed_origins`. Everything the tracker and the arena need
+  travels over MQTT, which is independent of it.
+- The first compile pulls a toolchain and takes a few minutes. After that
+  it is seconds.
+
+Docker instead of a local Python, if you prefer:
+
+```bash
+docker run --rm -it --device=/dev/ttyUSB0 -v "$PWD:/config" ghcr.io/esphome/esphome run waterrower.yaml
+```
+
+And if you want no toolchain at all: the web flasher at
+[web.esphome.io](https://web.esphome.io) flashes a `.bin` over the browser
+(Chrome or Edge), but somebody has to compile that `.bin` first – so this
+is the way to put a finished firmware on the *second* and *third* machine,
+not the way to build it.
 
 ### What the firmware does
 
@@ -327,6 +374,41 @@ compose file. The database lives at `./data/waterrower.db`.
 Set `TZ` in the compose file to the ESP's time zone – session IDs are local
 timestamps, and the tracker uses `TZ` to turn them into the start times
 shown in the UI.
+
+### Without Home Assistant
+
+The firmware needs a broker, not Home Assistant. If there is no HA in the
+house, `docker/docker-compose.mosquitto.yml` brings the tracker and a
+Mosquitto of its own up together:
+
+```bash
+cd docker
+mkdir -p mosquitto/config mosquitto/data
+```
+
+Mosquitto 2 listens on nothing and admits nobody until told, so create the
+password file the shipped `mosquitto.conf` points at – the ESP and the
+tracker both sign in with it:
+
+```bash
+docker run --rm -v "$PWD/mosquitto/config:/mosquitto/config" eclipse-mosquitto:2 mosquitto_passwd -c -b /mosquitto/config/passwd waterrower DEIN-PASSWORT
+```
+
+Put that same password in a `.env` as `MQTT_PASSWORD`, then:
+
+```bash
+docker compose -f docker-compose.mosquitto.yml up -d
+```
+
+The broker is on `<host>:1883` and the tracker on `<host>:8080`. In the
+ESP's `secrets.yaml`, point `mqtt_broker` at that host and use the same
+user and password. The tracker is already pointed at the broker by the
+compose file, so its settings form can stay untouched.
+
+Port 1883 has to be published – the ESP is on the network, not in the
+stack – but it belongs on the LAN. Do not forward it from the router: the
+arena needs no access to your broker, the tracker pushes to it from the
+inside.
 
 ### Develop
 
@@ -549,6 +631,32 @@ address it came from, plus which addresses and accounts were busiest. The
 lockout counters live in memory and a restart forgets them, so this log is
 the only part that survives one. It holds addresses, so it is pruned to a
 week.
+
+### What else the audit changed
+
+- Stored password hashes now carry the parameters they were made with, so
+  the cost can be raised later without invalidating anyone's password; the
+  cost went from scrypt n=2^14 to n=2^16, and an old hash is replaced with
+  a current one the next time that person signs in. OWASP's floor is 2^17,
+  which is 128 MiB *per verification* - with FastAPI's forty-wide thread
+  pool that is how you get an out-of-memory kill instead of a sign-in, so
+  at most two hashes run at once and the number stays at 2^16.
+- Signing in with a name that does not exist costs the same time as one
+  that does; otherwise the response time says which accounts are real.
+- `/api/health` answers yes or no and nothing else - no counts, no version,
+  no exception text. `/api/version` moved behind the sign-in.
+- Every response carries a content security policy that allows scripts,
+  styles and connections from this origin only, plus `frame-ancestors
+  'none'`, `nosniff` and `no-referrer`. Nothing the page needs comes from
+  anywhere else, so the policy can be that strict - it is the second lock
+  on cross-site scripting, behind rendering names as text.
+- Request bodies over 1 MiB are refused, and the sign-in fields are length
+  limited, so nothing oversized reaches the hash function.
+- `ARENA_TRUSTED_PROXIES` decides whose `X-Forwarded-For` to believe
+  (default: everyone, because the tunnel's address varies). **This is why
+  the `ports:` block should go once the tunnel works**: anything that can
+  reach port 8090 directly can put any address in that header and walk
+  around every address-based lockout.
 
 Passwords must be at least twelve characters and use three of the four
 kinds – lower case, upper case, digits, anything else. Worth knowing what

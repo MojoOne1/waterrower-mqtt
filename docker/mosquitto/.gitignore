@@ -1,0 +1,4 @@
+# The password file holds hashes for your broker; it is yours, not the
+# repository's.
+config/passwd
+data/
