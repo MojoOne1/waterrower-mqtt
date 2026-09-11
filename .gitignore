@@ -1,6 +1,5 @@
-secrets.yaml
-.esphome/
+esphome/secrets.yaml
+esphome/.esphome/
 docker/data/
-/data/
 __pycache__/
 waterrower-esphome.zip

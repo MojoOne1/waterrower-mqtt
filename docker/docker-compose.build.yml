@@ -1,10 +1,9 @@
-# Deploy-ready stack: pulls the prebuilt image from GHCR (built by
-# .github/workflows/docker-publish.yml on every push to master).
-# This is the only file needed on a deployment host / in a Dockge stack
-# folder - no repo checkout, no local build.
+# Local build, for development: builds the image from this folder.
+#   docker compose -f docker-compose.build.yml up -d --build
+# For deployment use docker-compose.yml (prebuilt image) instead.
 services:
   waterrower-tracker:
-    image: ghcr.io/mojoone1/waterrower-mqtt:latest
+    build: .
     container_name: waterrower-tracker
     restart: unless-stopped
     ports:

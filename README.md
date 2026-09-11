@@ -13,7 +13,7 @@ WaterRower S4 ──USB──► ESP32-S3 (ESPHome) ──MQTT──► broker �
 
 Two parts, usable independently:
 
-- **Firmware** (`esphome-waterrower.yaml`) – ESPHome config for the ESP32-S3.
+- **Firmware** (`esphome/`) – ESPHome config for the ESP32-S3.
   Talks the S4's serial protocol, detects sessions, publishes to MQTT and
   exposes everything as Home Assistant entities.
 - **Tracker** (`docker/`) – a single container that records every session
@@ -23,6 +23,16 @@ Two parts, usable independently:
 | Live | History & comparison |
 |---|---|
 | ![Live view](docs/screenshots/live.png) | ![Session history](docs/screenshots/history.png) |
+
+## Repository layout
+
+| Folder | Content |
+|---|---|
+| `esphome/` | Firmware config for the ESP32-S3 (`waterrower.yaml`, `secrets.yaml.example`) |
+| `docker/` | The tracker: source, Dockerfile, compose files |
+| `homeassistant/` | Ready-made Home Assistant dashboard |
+| `telegraf/` | Optional Telegraf → InfluxDB config |
+| `docs/` | Screenshots |
 
 ## Hardware
 
@@ -61,8 +71,9 @@ the YAML.
 
 ### Initial setup
 
-1. Copy `secrets.yaml.example` to `secrets.yaml` and fill it in.
-2. In `esphome-waterrower.yaml`, under `web_server.allowed_origins`, enter
+1. Copy `esphome/secrets.yaml.example` to `esphome/secrets.yaml` and fill
+   it in.
+2. In `esphome/waterrower.yaml`, under `web_server.allowed_origins`, enter
    the address of your Home Assistant instance.
 3. First flash over the **COM** port (web flasher at web.esphome.io or the
    ESPHome dashboard). If no serial port shows up: hold BOOT, plug in the
@@ -173,11 +184,11 @@ The image is published to GitHub Container Registry for `linux/amd64` and
 `linux/arm64` (Raspberry Pi 4/5 etc.) by `.github/workflows/docker-publish.yml`
 on every push to `master`.
 
-The `docker-compose.yml` at the repo root pulls that image – it's the only
-file a host needs (e.g. as a Dockge or Portainer stack), no checkout, no
-build:
+`docker/docker-compose.yml` pulls that image – it's the only file a host
+needs (e.g. as a Dockge or Portainer stack), no checkout, no build:
 
 ```bash
+cd docker
 docker compose up -d
 ```
 
@@ -193,11 +204,11 @@ shown in the UI.
 
 ### Develop
 
-`docker/docker-compose.yml` builds the image from source instead:
+`docker/docker-compose.build.yml` builds the image from source instead:
 
 ```bash
 cd docker
-docker compose up -d --build
+docker compose -f docker-compose.build.yml up -d --build
 ```
 
 ### What the tracker does
@@ -238,7 +249,7 @@ switches it; the default follows the browser language.
 
 One version number for the whole project, kept in two places that must
 match: the `VERSION` file at the repo root and `substitutions.version` in
-`esphome-waterrower.yaml`. Releases are tagged `v<version>` in git.
+`esphome/waterrower.yaml`. Releases are tagged `v<version>` in git.
 
 - **Tracker**: the workflow stamps the image with the version and the
   short commit hash (`APP_VERSION`, `GIT_COMMIT`); the image is tagged
@@ -276,7 +287,7 @@ match: the `VERSION` file at the repo root and `substitutions.version` in
 - Workout presets from Home Assistant (`WSI`/`WSU` commands)
 - Switching the display unit (`DI` commands)
 - HTML recreation of the S4 display for Home Assistant
-- Telegraf connection to InfluxDB (`telegraf-waterrower.conf` is a draft,
+- Telegraf connection to InfluxDB (`telegraf/waterrower.conf` is a draft,
   optional alongside the Docker tracker)
 - Workout history in HA (e.g. embed the tracker via iframe)
 - Heart-rate sensing once a chest strap is acquired
