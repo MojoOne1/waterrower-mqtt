@@ -7,7 +7,7 @@ import time
 
 import paho.mqtt.client as mqtt
 
-from db import Database
+from db import Database, started_from_sid
 
 log = logging.getLogger("mqtt")
 
@@ -57,9 +57,10 @@ class LiveState:
 
 
 class MqttIngest:
-    def __init__(self, db: Database, state: LiveState, settings: dict):
+    def __init__(self, db: Database, state: LiveState, settings: dict, uplink=None):
         self.db = db
         self.state = state
+        self.uplink = uplink        # optional Arena uplink; see uplink.py
         self.client = None
         self.settings = {}
         self.last_error = ""
@@ -157,7 +158,10 @@ class MqttIngest:
         sid = data.get("session_id")
         if not sid:
             return
-        self.db.add_sample(sid, time.time(), data)
+        now = time.time()
+        self.db.add_sample(sid, now, data)
+        if self.uplink:
+            self.uplink.sample(sid, started_from_sid(sid, now), data)
         self.state.session_id = sid
         self.state.session_active = True
         self.state.update(
@@ -170,7 +174,10 @@ class MqttIngest:
         sid = data.get("session_id")
         if not sid:
             return
-        self.db.close_session(sid, time.time(), data)
+        now = time.time()
+        self.db.close_session(sid, now, data)
+        if self.uplink:
+            self.uplink.summary(sid, started_from_sid(sid, now), data)
         self.state.session_active = False
         self.state.update()
         log.info("Session closed: %s", sid)

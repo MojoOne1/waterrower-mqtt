@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>WaterRower Arena</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🚣</text></svg>">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- Sign in ------------------------------------------------------------- -->
+<section id="gate" class="gate" hidden>
+  <form id="login-form" class="card gate-card">
+    <h1 data-i18n="appName">WaterRower Arena</h1>
+    <p class="hint" data-i18n="loginHint"></p>
+    <label><span data-i18n="labelName"></span><input id="login-name" autocomplete="username" required></label>
+    <label><span data-i18n="labelPassword"></span><input id="login-pass" type="password" autocomplete="current-password" required></label>
+    <div class="form-foot">
+      <span id="login-msg" class="form-msg"></span>
+      <button class="primary" type="submit" data-i18n="btnLogin"></button>
+    </div>
+  </form>
+
+  <form id="join-form" class="card gate-card" hidden>
+    <h1 data-i18n="joinTitle"></h1>
+    <p class="hint" id="join-who"></p>
+    <label><span data-i18n="labelDisplayName"></span><input id="join-display" autocomplete="nickname"></label>
+    <label><span data-i18n="labelNewPassword"></span><input id="join-pass" type="password" autocomplete="new-password" minlength="8" required></label>
+    <div class="form-foot">
+      <span id="join-msg" class="form-msg"></span>
+      <button class="primary" type="submit" data-i18n="btnJoin"></button>
+    </div>
+  </form>
+</section>
+
+<!-- App ----------------------------------------------------------------- -->
+<div id="app" hidden>
+  <header class="top">
+    <div class="top-row">
+      <h1 data-i18n="appName">WaterRower Arena</h1>
+      <span id="conn" class="conn" title=""><span class="dot"></span><span id="conn-text"></span></span>
+      <span class="spacer"></span>
+      <div class="seg lang" role="group">
+        <button type="button" data-lang="de">DE</button><button type="button" data-lang="en">EN</button>
+      </div>
+      <div class="seg theme" id="theme" role="group">
+        <button type="button" data-theme="auto" data-i18n="themeAuto"></button
+        ><button type="button" data-theme="light" data-i18n="themeLight"></button
+        ><button type="button" data-theme="dark" data-i18n="themeDark"></button>
+      </div>
+    </div>
+    <nav class="seg nav" id="nav" role="tablist">
+      <button type="button" data-view="arena" data-i18n="navArena"></button
+      ><button type="button" data-view="race" data-i18n="navRace"></button
+      ><button type="button" data-view="sessions" data-i18n="navSessions"></button
+      ><button type="button" data-view="records" data-i18n="navRecords"></button
+      ><button type="button" data-view="account" data-i18n="navAccount"></button>
+    </nav>
+  </header>
+
+  <main id="view" class="view"></main>
+
+  <footer class="foot">
+    <span id="foot-version"></span>
+  </footer>
+</div>
+
+<template id="tpl-arena">
+  <section class="stack">
+    <div id="race-banner"></div>
+    <h2 data-i18n="arenaNow"></h2>
+    <div id="live-cards" class="cards"></div>
+    <h2 data-i18n="arenaWeek"></h2>
+    <div id="totals" class="totals"></div>
+  </section>
+</template>
+
+<template id="tpl-race">
+  <section class="stack">
+    <div id="race-live"></div>
+    <div id="race-new"></div>
+    <h2 data-i18n="raceHistory"></h2>
+    <div id="race-list"></div>
+  </section>
+</template>
+
+<template id="tpl-sessions">
+  <section class="stack">
+    <div class="filters">
+      <label><span data-i18n="filterAthlete"></span><select id="f-athlete"></select></label>
+      <label><span data-i18n="filterRange"></span><select id="f-days"></select></label>
+      <span class="spacer"></span>
+      <button type="button" id="cmp-clear" data-i18n="clearSelection"></button>
+    </div>
+    <div class="split">
+      <div class="list"><ul id="session-list"></ul></div>
+      <div class="detail" id="session-detail"></div>
+    </div>
+    <div id="compare"></div>
+  </section>
+</template>
+
+<template id="tpl-records">
+  <section class="stack">
+    <h2 data-i18n="recordsDistance"></h2>
+    <div id="rec-distance" class="rec-grid"></div>
+    <h2 data-i18n="recordsTime"></h2>
+    <div id="rec-time" class="rec-grid"></div>
+    <h2 data-i18n="recordsTotals"></h2>
+    <div id="rec-totals"></div>
+    <h2 data-i18n="recordsH2h"></h2>
+    <div id="rec-h2h"></div>
+  </section>
+</template>
+
+<template id="tpl-account">
+  <section class="stack">
+    <h2 data-i18n="accProfile"></h2>
+    <div id="acc-profile"></div>
+    <h2 data-i18n="accTokens"></h2>
+    <div id="acc-tokens"></div>
+    <div id="acc-admin"></div>
+  </section>
+</template>
+
+<script src="/static/app.js"></script>
+<script src="/static/charts.js"></script>
+<script src="/static/views.js"></script>
+<script src="/static/race.js"></script>
+</body>
+</html>

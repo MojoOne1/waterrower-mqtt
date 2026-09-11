@@ -3,13 +3,15 @@
 Reads out a WaterRower Series IV Performance Monitor over USB and makes the
 values available in Home Assistant, via MQTT, and through a local web UI.
 No computer needed at the rowing machine – an ESP32-S3 for under €10 takes
-on the role of USB host.
+on the role of USB host. Several rowers can point their trackers at one
+shared server and race each other live.
 
 ```
 WaterRower S4 ──USB──► ESP32-S3 (ESPHome) ──MQTT──► broker ──► Tracker (Docker, web UI)
-                            │
-                            ├── native API ──► Home Assistant
-                            └── local web UI
+                            │                                     │
+                            ├── native API ──► Home Assistant     └── WebSocket ──► Arena
+                            └── local web UI                          (shared server,
+                                                                       live racing)
 ```
 
 | Live | History & comparison |
@@ -56,6 +58,28 @@ reachable MQTT broker. Home Assistant is not required for it.
 | `app/db.py` | SQLite schema and queries |
 | `app/static/` | The UI: `index.html`, `app.js` (charts, i18n), `style.css` |
 
+### Arena – `server/`
+
+Optional, and the only part that is not local: a small server that several
+trackers report to, so a group of friends with their own rowing machines
+shares one training log and can race each other live. Each tracker keeps
+recording exactly as before and additionally pushes its samples over one
+outbound WebSocket – no port forwarding at anybody's home, and the arena
+never talks to an ESP directly.
+
+| File | Purpose |
+|---|---|
+| `docker-compose.yml` | Deploy: the arena, plus `cloudflared` for the tunnel behind a profile |
+| `docker-compose.local.yml` | Test: arena *and* tracker built from this checkout, both on localhost |
+| `Dockerfile`, `requirements.txt` | Image definition (Python 3.12, FastAPI) |
+| `app/main.py` | App assembly, the two WebSocket endpoints, static files |
+| `app/ingest.py` | The uplink endpoint: one socket per tracker |
+| `app/race.py` | The race engine: lobby, countdown, lanes, placing |
+| `app/records.py` | Personal bests, scanned out of the samples |
+| `app/hub.py` | Live state and the fan-out to browsers |
+| `app/api.py`, `app/auth.py`, `app/db.py`, `app/config.py` | REST API, sign-in, SQLite, settings |
+| `app/static/` | The UI: arena, race, sessions, records, account |
+
 ### Home Assistant – `homeassistant/`
 
 Optional. Home Assistant is the natural home for the ESPHome dashboard
@@ -81,11 +105,19 @@ device controls.
              esphome/    │  Mosquitto App → MQTT broker               │
                  │       └────────────────────────────────────────────┘
                  └──MQTT──► broker ──► Tracker (docker/)  web UI :8080
+                                             │
+                                             │ WebSocket (outbound, TLS)
+                                             ▼
+                               Cloudflare Tunnel → Arena (server/)
+                                             ▲
+                        the same from your friends' houses
 ```
 
 The ESP publishes; the broker distributes; the tracker and Home
 Assistant each consume independently. The only channel back to the ESP
-is `waterrower/cmd/end_session`, used by the tracker's button.
+is `waterrower/cmd/end_session`, used by the tracker's button – and, when
+a race is about to start, by the arena through the tracker's uplink, so
+every monitor is zeroed before the gun.
 
 ## Setup order
 
@@ -116,6 +148,9 @@ avoids backtracking.
 7. **Row** – a session starts on the first stroke; end it with the
    tracker's "End session" button (or the HA reset button), which also
    resets the monitor.
+8. **Arena** – only if you want to row against other people: deploy
+   `server/docker-compose.yml` once, create an athlete per person, and
+   paste each one's token into their tracker ([Arena](#arena-multiplayer)).
 
 ## Hardware
 
@@ -320,6 +355,10 @@ docker compose -f docker-compose.build.yml up -d --build
 - Light/dark switch in the header (Auto follows the system); the chart
   colours are a colourblind-safe categorical set, checked against both
   surfaces
+- Optional uplink to an [Arena](#arena-multiplayer) server: the same
+  samples go out over one WebSocket, sessions recorded while the uplink
+  was down are sent afterwards, and the arena may ask for a monitor reset
+  before a race
 
 If the tracker is started after the ESP, the samples from before are
 missing – but the session ID carries the start time, so ordering stays
@@ -332,6 +371,7 @@ For your own analysis:
 | Path | Content |
 |---|---|
 | `GET` / `POST /api/settings` | Read / set broker settings (reconnects) |
+| `GET` / `POST /api/arena` | Read / set the arena uplink (address, token, on/off) |
 | `GET /api/version` | Tracker version and git commit |
 | `GET /api/live` | Current state |
 | `GET /api/stream` | Live updates as Server-Sent Events |
@@ -346,16 +386,179 @@ For your own analysis:
 The UI is available in English and German – the DE/EN toggle in the header
 switches it; the default follows the browser language.
 
+## Arena (multiplayer)
+
+> **Alpha.** The arena works end to end – sign-in, uplink, backfill, races,
+> records – and is covered by tests, but it has not yet been run for a real
+> session by real people on real machines. Expect rough edges, and do not be
+> surprised if the database schema changes under you. The firmware, the
+> tracker's recording and the Home Assistant side are untouched by it: a
+> tracker with the uplink switched off behaves exactly as before.
+
+One server, a handful of friends with their own WaterRowers, one shared
+training log – and races that happen at the same moment in different
+houses. Everybody keeps their own tracker; the arena only ever sees a copy.
+
+### How the data gets there
+
+Each tracker opens **one outbound WebSocket** to the arena and
+authenticates with a device token. That direction matters: nobody has to
+forward a port, expose a broker, or own a certificate, and it works from
+behind any consumer router. The arena speaks no MQTT at all.
+
+The alternatives were considered and rejected: pointing the ESP straight at
+a central broker costs everyone their local broker (ESPHome has one MQTT
+client), and bridging each household's Mosquitto means every friend has to
+edit a broker config.
+
+Because the tracker is the one sending, it also knows what it has: on
+connect the arena replies with the sessions it already holds, and the
+tracker sends the rest. A weekend with the internet down costs a delay,
+not the data.
+
+### Deploy
+
+`server/docker-compose.yml` runs the arena; the `cloudflared` container that
+publishes it sits behind a Compose profile, so you can bring the thing up on
+a port first and add the tunnel once it works.
+
+Put the repo on the Docker host and create a `.env` next to the compose file
+(see `server/.env.example`) with at least an admin password:
+
+```
+ARENA_ADMIN_PASSWORD=something-long
+```
+
+Then, from `server/`:
+
+```bash
+docker compose up -d --build
+```
+
+Open `http://<host>:8090` and sign in as `admin`. The database lives at
+`./data/arena.db`. Keep `ARENA_SECURE_COOKIES=0` while you are on plain
+HTTP – a Secure cookie is dropped there and the sign-in would not stick.
+
+To publish it:
+
+1. In Cloudflare Zero Trust → Networks → Tunnels, create a tunnel and put
+   its token in `.env` as `TUNNEL_TOKEN`.
+2. Under the tunnel's **Public Hostname**, point your hostname (say
+   `arena.example.com`) at `http://arena:8090`. Cloudflare proxies
+   WebSockets, which is what both the trackers and the browsers use.
+3. Set `ARENA_SECURE_COOKIES=1` and start it with the tunnel:
+
+   ```bash
+   docker compose --profile tunnel up -d --build
+   ```
+
+Once that works you can delete the `ports:` block and reach the arena only
+through the tunnel – nothing is then exposed on the host at all.
+
+The `--build` is only needed until this branch lands on `master`; after that
+the workflow publishes the image and plain `docker compose up -d` pulls it.
+
+Any other reverse proxy works as well – the app listens on `8090`, honours
+`X-Forwarded-*`, and needs nothing but WebSocket pass-through.
+
+To exercise the uplink end to end without touching your real setup,
+`server/docker-compose.local.yml` builds the arena *and* a tracker from this
+checkout and puts them on `localhost:8090` and `localhost:8080`; the header
+comment in that file walks through connecting one to the other.
+
+### Adding your friends
+
+Under **Konto / Account**:
+
+1. *Athlet anlegen* – a handle and a display name. You get a one-time
+   invitation link; send it to them. They open it, pick a password, and
+   are in. There is no public sign-up.
+2. Each of them creates a token under **Tracker-Verbindung** (it is shown
+   exactly once – it is stored hashed) and pastes it, with the arena's
+   address, into their tracker under *Arena*. Within a few seconds the
+   arena header shows them as online.
+
+Lane colours are handed out automatically and are used consistently for
+that athlete – in the live tiles, the charts, the lanes and the tables.
+
+### Racing
+
+Three modes:
+
+| Mode | Ends when | Winner |
+|---|---|---|
+| **Distance** | everybody has covered the target, or ten minutes after the first finisher | fastest time |
+| **Time** | the clock runs out | most metres |
+| **Free** | the host ends it | nobody – just row together |
+
+A race is created in a lobby; the others join and say they are ready. When
+the host starts it, the arena sends every participant's tracker a reset, so
+each monitor and each S4 session starts from zero, and then counts down ten
+seconds. From the gun the view shows one lane per rower with distance,
+split, stroke rate, watts, the gap in metres *and* in seconds, and – in a
+distance race – the projected time still to go.
+
+A lane does not have to be a live person. **Ghost** adds any recorded
+session as an opponent, replayed against the race clock: row against a
+friend who is not at home, or against your own best.
+
+Timing: the race clock is the server's, and a lane is placed on it by the
+arrival time of its samples. Samples come once a second, so a finish time
+is interpolated between the two that straddle the line. Transport latency –
+tens of milliseconds, and much the same for everyone – is the accuracy
+limit. This is a race between friends, not a timing gate.
+
+Everything a race produces is kept: the placings, the linked sessions, and
+a head-to-head tally of who has beaten whom.
+
+### Records and comparison
+
+Personal bests are scanned out of the samples with a rolling window, so the
+fastest 2 km *inside* a 6 km row counts too. Standard efforts are 500 m,
+1 km, 2 km, 5 km and 10 km for time, and 5, 10, 20, 30 and 60 minutes for
+distance. The session list spans every athlete, and up to four sessions –
+from different people – can be overlaid on one chart.
+
+### Settings
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `ARENA_ADMIN_USER` / `ARENA_ADMIN_PASSWORD` | `admin` / – | The first login, created only while that athlete does not exist |
+| `ARENA_SECURE_COOKIES` | `1` | Keep at `1` behind Cloudflare; `0` only for `http://localhost` |
+| `ARENA_SESSION_DAYS` | `30` | How long a browser stays signed in |
+| `ARENA_COUNTDOWN` | `10` | Seconds between the start and the gun |
+| `ARENA_FINISH_GRACE` | `600` | Seconds a distance race waits for stragglers after the winner |
+| `DB_PATH` | `/data/arena.db` | SQLite file |
+
+### Arena API
+
+Everything needs a session cookie; the uplink uses its own token.
+
+| Path | Content |
+|---|---|
+| `POST /api/login`, `/api/logout`, `/api/join` | Sign in, out, redeem an invitation |
+| `GET /api/athletes`, `POST /api/athletes` | Athletes; creating one returns an invitation code (admin) |
+| `POST /api/athletes/{id}/tokens` | Mint a device token – returned once, stored hashed |
+| `GET /api/live` | Who is rowing right now, and the running race |
+| `GET /api/sessions`, `/api/sessions/{id}` | All athletes' sessions, one with its samples |
+| `GET /api/records`, `/api/totals`, `/api/h2h` | Leaderboards, totals, head to head |
+| `POST /api/race`, `/api/race/join`, `/api/race/ready`, `/api/race/ghost`, `/api/race/start`, `/api/race/finish` | Run a race |
+| `GET /api/races` | Race history with placings |
+| `WS /ws/live` | Live tiles and race ticks for a browser |
+| `WS /ws/uplink` | A tracker's uplink (see `server/app/ingest.py` for the messages) |
+
 ## Versioning
 
 One version number for the whole project, kept in two places that must
 match: the `VERSION` file at the repo root and `substitutions.version` in
 `esphome/waterrower.yaml`. Releases are tagged `v<version>` in git.
 
-- **Tracker**: the workflow stamps the image with the version and the
-  short commit hash (`APP_VERSION`, `GIT_COMMIT`); the image is tagged
-  `latest`, `<version>` and `sha-<commit>`. Both show in the web UI's
-  footer (the commit links to GitHub) and at `/api/version`.
+- **Tracker and arena**: the workflow builds both images from the same
+  commit and stamps each with the version and the short commit hash
+  (`APP_VERSION`, `GIT_COMMIT`); both are tagged `latest`, `<version>` and
+  `sha-<commit>`. The tracker keeps the repository's own image name
+  (`ghcr.io/<owner>/waterrower-mqtt`), the arena adds `/arena`. Both show
+  in their web UI's footer and at `/api/version`.
 - **Firmware**: the version appears in Home Assistant's device info, as
   the "Firmware Version" entity in the ESPHome web UI, and is published
   on `waterrower/firmware_version` so the tracker's footer can show it.

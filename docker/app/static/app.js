@@ -58,6 +58,14 @@ const I18N = {
     endSession: "Einheit beenden", confirmEnd: "Diese Einheit jetzt beenden und den Monitor zurücksetzen?", endFailed: "Beenden fehlgeschlagen",
     fDistance: "Distanz", fDuration: "Dauer", fSplit: "Ø 500 m", fAvgSpeed: "Ø Geschwindigkeit", fPeak: "Spitze",
     fAvgSpm: "Ø Schlagfrequenz", fStrokes: "Schläge", fMeterPerStroke: "Meter je Schlag",
+    arenaTitle: "Arena – gemeinsam rudern",
+    arenaUrl: "Server", arenaUrlPh: "arena.example.com", arenaToken: "Token",
+    arenaEnabled: "Daten an die Arena senden",
+    arenaHint: "Der Token kommt aus der Arena unter <em>Konto → Tracker-Verbindung</em>. " +
+      "Aufgezeichnet wird weiterhin lokal; die Arena bekommt eine Kopie und kann vor einem Rennen den Monitor zurücksetzen.",
+    btnSave: "Speichern",
+    arenaOn: (who) => `Arena: ${who || "verbunden"}`,
+    arenaOff: "Arena getrennt", arenaIdle: "Arena aus",
   },
   en: {
     locale: "en-GB",
@@ -89,6 +97,14 @@ const I18N = {
     endSession: "End session", confirmEnd: "End this session now and reset the monitor?", endFailed: "Could not end the session",
     fDistance: "Distance", fDuration: "Duration", fSplit: "Avg 500 m", fAvgSpeed: "Avg speed", fPeak: "Peak",
     fAvgSpm: "Avg stroke rate", fStrokes: "Strokes", fMeterPerStroke: "Metres per stroke",
+    arenaTitle: "Arena – rowing together",
+    arenaUrl: "Server", arenaUrlPh: "arena.example.com", arenaToken: "Token",
+    arenaEnabled: "Send data to the arena",
+    arenaHint: "The token comes from the arena under <em>Account → Tracker connection</em>. " +
+      "Recording stays local; the arena gets a copy and may reset the monitor before a race.",
+    btnSave: "Save",
+    arenaOn: (who) => `Arena: ${who || "connected"}`,
+    arenaOff: "Arena disconnected", arenaIdle: "Arena off",
   },
 };
 
@@ -118,6 +134,7 @@ async function setLang(next) {
   try { localStorage.setItem("lang", lang); } catch {}
   applyLang();
   if (lastSnap) renderLive(lastSnap);
+  pollArena();
   await loadSessions();
   if (selected) await selectSession(selected);
   renderCompare();
@@ -593,6 +610,62 @@ settingsForm.onsubmit = async (e) => {
   else { settingsMsg.textContent = s.error || t("noConnection"); settingsMsg.className = "form-msg err"; }
 };
 
+// --- Arena uplink ----------------------------------------------------------
+
+const arenaForm = $("arena-form"), arenaMsg = $("arena-msg");
+
+function renderArena(s) {
+  const pill = $("arena-pill");
+  pill.hidden = !s.url;
+  pill.classList.toggle("usb", s.connected);
+  pill.classList.toggle("on", s.enabled && !s.connected);
+  $("arena-text").textContent = !s.enabled ? t("arenaIdle")
+    : s.connected ? t("arenaOn", s.athlete) : t("arenaOff");
+  pill.title = s.error || "";
+}
+
+async function loadArena() {
+  const s = await (await fetch("/api/arena")).json();
+  arenaForm.elements.arena_url.value = s.url || "";
+  // The token is write-only: the server never hands it back, so a set one
+  // is shown as dots and left alone unless it is typed over.
+  arenaForm.elements.arena_token.value = s.token_set ? "••••••" : "";
+  arenaForm.elements.arena_enabled.checked = !!s.enabled;
+  renderArena(s);
+}
+
+arenaForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const f = arenaForm.elements;
+  const body = {
+    arena_url: f.arena_url.value.trim(),
+    arena_token: f.arena_token.value,
+    arena_enabled: f.arena_enabled.checked,
+  };
+  arenaMsg.className = "form-msg"; arenaMsg.textContent = "";
+  const r = await fetch("/api/arena", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    arenaMsg.textContent = (await r.json()).detail || t("saveFailed");
+    arenaMsg.className = "form-msg err";
+    return;
+  }
+  arenaMsg.textContent = t("formConnecting");
+  await new Promise((res) => setTimeout(res, 2500));
+  const s = await (await fetch("/api/arena")).json();
+  renderArena(s);
+  arenaMsg.className = s.connected ? "form-msg ok" : "form-msg err";
+  arenaMsg.textContent = s.connected ? t("formConnected") : (s.error || t("noConnection"));
+};
+
+/* Status only - never the input fields, or it would overwrite what is being
+   typed while the panel is open. */
+async function pollArena() {
+  try { renderArena(await (await fetch("/api/arena")).json()); } catch {}
+}
+setInterval(pollArena, 15000);
+
 // --- Version footer --------------------------------------------------------
 
 const REPO = "https://github.com/MojoOne1/waterrower-mqtt";
@@ -621,4 +694,5 @@ applyLang();
 connectStream();
 loadSessions();
 loadSettings();
+loadArena();
 loadVersion();

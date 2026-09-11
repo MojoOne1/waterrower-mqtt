@@ -1,10 +1,11 @@
-name: Build and publish Docker image
+name: Build and publish Docker images
 
 on:
   push:
     branches: [master]
     paths:
       - "docker/**"
+      - "server/**"
       - "VERSION"
       - ".github/workflows/docker-publish.yml"
   workflow_dispatch:
@@ -18,6 +19,19 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The tracker keeps the repository's own image name, so existing
+          # deployments carry on pulling the same tag.
+          - component: tracker
+            context: ./docker
+            suffix: ""
+          - component: arena
+            context: ./server
+            suffix: /arena
+    name: ${{ matrix.component }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,13 +55,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Image name is derived from the repo (lowercased), so forks publish
+      # Image names are derived from the repo (lowercased), so forks publish
       # under their own namespace without editing this file.
       - name: Image metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          images: ${{ env.REGISTRY }}/${{ github.repository }}${{ matrix.suffix }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=${{ steps.ver.outputs.version }}
@@ -56,7 +70,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: ./docker
+          context: ${{ matrix.context }}
           platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
@@ -64,5 +78,5 @@ jobs:
             GIT_COMMIT=${{ steps.ver.outputs.commit }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}

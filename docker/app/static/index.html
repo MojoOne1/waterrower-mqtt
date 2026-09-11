@@ -24,6 +24,7 @@
       <button type="button" data-theme="dark" data-i18n-title="themeDark">☾</button>
     </div>
     <span class="s4" id="s4"><span class="dot"></span><span id="s4-text" data-i18n="s4Unknown"></span></span>
+    <span class="s4 arena" id="arena-pill" hidden><span class="dot"></span><span id="arena-text"></span></span>
     <button class="conn" id="conn" type="button" aria-expanded="false" aria-controls="settings">
       <span class="dot"></span><span id="conn-text" data-i18n="connecting"></span>
     </button>
@@ -44,6 +45,20 @@
     <div class="form-foot">
       <span class="form-msg" id="settings-msg"></span>
       <button type="submit" class="primary" data-i18n="btnConnect"></button>
+    </div>
+  </form>
+
+  <form id="arena-form">
+    <h2 data-i18n="arenaTitle"></h2>
+    <div class="fields arena-fields">
+      <label><span data-i18n="arenaUrl"></span> <input name="arena_url" data-i18n-placeholder="arenaUrlPh"></label>
+      <label><span data-i18n="arenaToken"></span> <input name="arena_token" type="password" autocomplete="off" data-i18n-placeholder="phOptional"></label>
+      <label class="check"><input name="arena_enabled" type="checkbox"> <span data-i18n="arenaEnabled"></span></label>
+    </div>
+    <p class="hint" data-i18n-html="arenaHint"></p>
+    <div class="form-foot">
+      <span class="form-msg" id="arena-msg"></span>
+      <button type="submit" class="primary" data-i18n="btnSave"></button>
     </div>
   </form>
 </section>

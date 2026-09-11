@@ -17,6 +17,7 @@ from pydantic import BaseModel
 import xlsx_export
 from db import Database
 from mqtt_ingest import LiveState, MqttIngest
+from uplink import Uplink
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -35,6 +36,9 @@ def load_settings() -> dict:
         "username": os.environ.get("MQTT_USERNAME", ""),
         "password": os.environ.get("MQTT_PASSWORD", ""),
         "prefix": os.environ.get("MQTT_PREFIX", "waterrower"),
+        "arena_url": os.environ.get("ARENA_URL", ""),
+        "arena_token": os.environ.get("ARENA_TOKEN", ""),
+        "arena_enabled": os.environ.get("ARENA_URL", "") != "",
     }
     if SETTINGS_PATH.exists():
         try:
@@ -44,20 +48,37 @@ def load_settings() -> dict:
     return s
 
 
-def save_settings(s: dict) -> None:
+def save_settings(changed: dict) -> dict:
+    """Merge into what is on disk: the broker form and the arena form each
+    write only their own keys, and neither may erase the other's."""
+    s = load_settings()
+    s.update(changed)
     SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
     SETTINGS_PATH.write_text(json.dumps(s, indent=2))
+    return s
 
 
 db = Database(DB_PATH)
 state = LiveState()
-ingest = MqttIngest(db, state, load_settings())
+
+
+def on_arena_command(cmd: str, _msg: dict) -> None:
+    """The arena asks for a reset before the gun so every monitor starts at
+    zero - the same thing the "End session" button does."""
+    if cmd == "reset":
+        ingest.publish("cmd/end_session", "reset")
+
+
+link = Uplink(db, load_settings(), on_command=on_arena_command)
+ingest = MqttIngest(db, state, load_settings(), uplink=link)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ingest.start()
+    link.start(version=APP_VERSION)
     yield
+    link.stop()
     ingest.stop()
 
 
@@ -97,10 +118,36 @@ def set_settings(new: Settings):
         s["password"] = ingest.settings.get("password", "")
     if not s["host"]:
         raise HTTPException(400, "Broker address missing")
-    save_settings(s)
-    ingest.configure(s)
+    merged = save_settings(s)
+    ingest.configure(merged)
     ingest.start()
     return {"ok": True}
+
+
+# --- Arena -----------------------------------------------------------------
+
+class ArenaSettings(BaseModel):
+    arena_url: str = ""
+    arena_token: str = ""
+    arena_enabled: bool = False
+
+
+@app.get("/api/arena")
+def get_arena():
+    return link.status()
+
+
+@app.post("/api/arena")
+def set_arena(new: ArenaSettings):
+    s = new.model_dump()
+    s["arena_url"] = s["arena_url"].strip().rstrip("/")
+    s["arena_token"] = s["arena_token"].strip()
+    if s["arena_token"] == "••••••":           # left unchanged in the form
+        s["arena_token"] = load_settings().get("arena_token", "")
+    if s["arena_enabled"] and not (s["arena_url"] and s["arena_token"]):
+        raise HTTPException(400, "Arena needs both an address and a token")
+    link.configure(save_settings(s))
+    return link.status()
 
 
 # --- Live ------------------------------------------------------------------
