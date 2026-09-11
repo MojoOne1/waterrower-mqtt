@@ -164,15 +164,11 @@ the YAML.
 
 ### What the firmware does
 
-- Manages the USB link around the S4's own power-off: when the S4 shows
-  up on USB it sends the `USB` command (without it the S4 stays silent).
-  After a workout, once "USB Idle Timeout" (default 60 s) passes without
-  a stroke, it sends `EXIT` and then only probes every "USB Probe
-  Interval" minutes (default 4) in case rowing resumes. When the S4 is
-  switched off it disappears from USB and nothing is sent until it
-  reappears. The "USB Link" switch turns all of this off for a fully
-  passive link. Note that the S4 does not power itself off while it sees
-  USB power – see [Troubleshooting](#troubleshooting).
+- Keeps the USB link up: when the S4 appears it sends the `USB` command
+  (without it the S4 stays silent) and repeats the handshake if packets
+  stop for 10 s. "S4 Connected" and "USB Mode" report the link state.
+  Note that the S4 runs off USB power here and therefore never switches
+  itself off – see [Troubleshooting](#troubleshooting).
 - Polls the S4's memory addresses every second during a workout. While
   idle it sends nothing at all – every packet the S4 receives resets its
   auto power-off timer, so the monitor still switches itself off as usual.
@@ -381,14 +377,14 @@ match: the `VERSION` file at the repo root and `substitutions.version` in
 - **Session start times are off by a few hours:** `TZ` in the compose file
   doesn't match the ESP's time zone.
 - **The monitor never switches itself off:** expected, and not fixable in
-  firmware. Measured: 10 minutes outside USB mode with zero traffic and
-  the S4 stays on. As soon as it sees 5 V on VBUS and is enumerated it
-  behaves as if attached to a PC – it runs from USB power and disables
-  its auto power-off. (Take the batteries out: it keeps running.) If you
-  want it off between workouts, cut the ESP's power, e.g. a smart plug
-  driven by a Home Assistant automation on "S4 Status" = sleeping. The
-  firmware still leaves USB mode when idle ("USB Idle Timeout") so the
-  link is quiet, and "S4 Connected" / "USB Mode" show what it is doing.
+  firmware. Its 2-minute auto power-off only applies on battery. As soon
+  as it sees 5 V on VBUS and is enumerated it behaves as if attached to a
+  PC and runs from USB power. Measured both ways: leaving USB mode with
+  `EXIT` and sending nothing at all for 10 minutes does not switch it
+  off, and opening the USB-OTG bridge (no VBUS) stops it from
+  enumerating at all – so "linked" and "powers itself off" are mutually
+  exclusive. If you want it off between workouts, cut the ESP's power,
+  e.g. with a smart plug.
 
 ## Open items
 

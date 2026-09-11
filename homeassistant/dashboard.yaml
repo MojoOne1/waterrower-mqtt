@@ -188,35 +188,17 @@ views:
       grid_options:
         columns: 6
     - type: tile
-      entity: switch.waterrower_usb_link
-      name: USB link
-      icon: mdi:usb-port
-      grid_options:
-        columns: 4
-    - type: tile
       entity: binary_sensor.waterrower_s4_connected
       name: S4 connected
       icon: mdi:power-plug
       grid_options:
-        columns: 4
+        columns: 3
     - type: tile
       entity: binary_sensor.waterrower_usb_mode
       name: USB mode
       icon: mdi:swap-horizontal
       grid_options:
-        columns: 4
-    - type: tile
-      entity: number.waterrower_usb_idle_timeout
-      name: USB idle timeout
-      icon: mdi:timer-sand
-      grid_options:
-        columns: 6
-    - type: tile
-      entity: number.waterrower_usb_probe_interval
-      name: USB probe interval
-      icon: mdi:timer-refresh-outline
-      grid_options:
-        columns: 6
+        columns: 3
     - type: tile
       entity: sensor.waterrower_firmware_version
       name: Firmware
