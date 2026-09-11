@@ -122,13 +122,27 @@ Standalone recording and analysis, no InfluxDB or Grafana required. One
 container, SQLite for storage, a web UI with no external dependencies. The
 only requirement is a reachable MQTT broker.
 
-```bash
-docker compose up -d
-```
+There are two `docker-compose.yml` files, for two different situations:
 
-(`docker-compose.yml` at the repo root builds `./docker` and mounts
-`./docker/data`. A second, self-contained copy lives in `docker/` itself,
-for running the tracker from just that subfolder.)
+- **`docker-compose.yml`** (repo root) – pulls the prebuilt image from
+  GitHub Container Registry (`ghcr.io/mojoone1/waterrower-mqtt`), published
+  automatically by `.github/workflows/docker-publish.yml` on every push to
+  `master`. This is the one to use for deploying: it's the only file a
+  host needs (e.g. as a Dockge stack) – no repo checkout, no local build.
+  ```bash
+  docker compose up -d
+  ```
+- **`docker/docker-compose.yml`** – builds the image locally from
+  `docker/`, for development or testing changes before they're pushed.
+  ```bash
+  cd docker
+  docker compose up -d --build
+  ```
+
+The GHCR package follows the repo's visibility (private by default). To
+pull it on a deployment host either make the package public (package page
+on GitHub → Package settings → Change visibility), or `docker login
+ghcr.io` on the host with a PAT scoped to `read:packages`.
 
 Then reachable at `http://<host>:8080/`. On first visit, a form for the
 broker connection (address, port, login, topic prefix) opens; settings are

@@ -1,12 +1,16 @@
+# Deploy-ready stack: pulls the prebuilt image from GHCR (built by
+# .github/workflows/docker-publish.yml on every push to master).
+# This is the only file needed on a deployment host / in a Dockge stack
+# folder - no repo checkout, no local build.
 services:
   waterrower-tracker:
-    build: ./docker
+    image: ghcr.io/mojoone1/waterrower-mqtt:latest
     container_name: waterrower-tracker
     restart: unless-stopped
     ports:
       - "8080:8080"
     # Optional: pre-fill the settings form. Anything saved through the form
-    # ends up in ./docker/data/settings.json and takes precedence.
+    # ends up in ./data/settings.json and takes precedence.
     environment:
       MQTT_HOST: ""
       MQTT_PORT: 1883
@@ -14,4 +18,4 @@ services:
       MQTT_PASSWORD: ""
       MQTT_PREFIX: waterrower
     volumes:
-      - ./docker/data:/data
+      - ./data:/data
