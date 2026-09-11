@@ -1,8 +1,23 @@
 /* WaterRower Tracker - UI (no dependencies) */
 
 const $ = (id) => document.getElementById(id);
-const COLORS = ["#2a2d31", "#c8a878", "#5f8a4e", "#6b7a99"];
-const OLIVE = "#a6ad84";
+
+// Canvas can't use CSS variables, so the palette is read from the document
+// once per theme and the charts are redrawn when the colour scheme flips.
+const THEME = { series: [] };
+function readTheme() {
+  const s = getComputedStyle(document.documentElement);
+  const v = (name, fallback) => s.getPropertyValue(name).trim() || fallback;
+  THEME.series = [
+    v("--series-1", "#2a78d6"), v("--series-2", "#eb6834"),
+    v("--series-3", "#1baf7a"), v("--series-4", "#eda100"),
+  ];
+  THEME.grid = v("--grid", "#e4e6dc");
+  THEME.muted = v("--muted", "#7c8076");
+  THEME.ink = v("--ink", "#1c1f22");
+  THEME.accent = v("--accent", "#a9601f");
+}
+readTheme();
 
 let sessions = [];
 let selected = null;
@@ -231,7 +246,7 @@ function drawSpark(canvas, vals) {
   const ctx = canvas.getContext("2d"); ctx.scale(dpr, dpr);
   if (vals.length < 2) return;
   const max = Math.max(...vals) || 1;
-  ctx.strokeStyle = OLIVE; ctx.lineWidth = 1.5; ctx.beginPath();
+  ctx.strokeStyle = THEME.series[0]; ctx.globalAlpha = 0.55; ctx.lineWidth = 1.5; ctx.beginPath();
   vals.forEach((v, i) => {
     const x = (i / (vals.length - 1)) * W, y = H - 2 - (v / max) * (H - 4);
     i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
@@ -266,12 +281,12 @@ async function selectSession(id) {
   const t0 = samples.length ? samples[0].ts : 0;
   const rel = samples.map((x) => x.ts - t0);
   drawLine($("ch-speed"), [
-    { x: rel, y: speeds, color: OLIVE, width: 1, fill: true },
-    { x: rel, y: smooth(speeds), color: COLORS[0], width: 2 },
+    { x: rel, y: speeds, color: THEME.series[0], width: 1, fill: true, ghost: true },
+    { x: rel, y: smooth(speeds), color: THEME.series[0], width: 2.5 },
   ], { yFmt: (v) => v.toFixed(1), avg: avg(speeds), readout: $("ro-speed"),
        fmt: (t, v) => `${fmtDur(t)} · ${v.toFixed(2)} m/s · ${fmtSplit(v)} /500 m` });
   drawLine($("ch-spm"), [
-    { x: rel, y: spms, color: COLORS[2], width: 1.5, step: true },
+    { x: rel, y: spms, color: THEME.series[2], width: 2, step: true },
   ], { yFmt: (v) => Math.round(v), yMin: 0, readout: $("ro-spm"),
        fmt: (t, v) => `${fmtDur(t)} · ${Math.round(v)} spm` });
   renderTrend();
@@ -313,10 +328,10 @@ async function renderCompare() {
 
   const series = rows.map((d, i) => {
     const t0 = d.samples.length ? d.samples[0].ts : 0;
-    return { x: d.samples.map((s) => s.ts - t0), y: smooth(d.samples.map((s) => s.speed_ms)), color: COLORS[i], width: 2 };
+    return { x: d.samples.map((s) => s.ts - t0), y: smooth(d.samples.map((s) => s.speed_ms)), color: THEME.series[i], width: 2 };
   });
   $("legend").innerHTML = rows.map((d, i) =>
-    `<li><i style="background:${COLORS[i]}"></i>${fmtWhen(d.session.session_id, d.session.started_at)}</li>`).join("");
+    `<li><i style="background:${THEME.series[i]}"></i>${fmtWhen(d.session.session_id, d.session.started_at)}</li>`).join("");
   drawLine($("ch-cmp"), series, { yFmt: (v) => v.toFixed(1), readout: $("ro-cmp"),
     fmt: (t, v) => `${fmtDur(t)} · ${v.toFixed(2)} m/s` });
 
@@ -329,7 +344,7 @@ async function renderCompare() {
     [t("fStrokes"), (s) => s.strokes, (v) => v, "max"],
     [t("fMeterPerStroke"), (s) => (s.strokes ? s.distance_m / s.strokes : 0), (v) => v.toFixed(1), "max"],
   ];
-  const head = `<thead><tr><th></th>${rows.map((d, i) => `<th><i class="sw" style="background:${COLORS[i]}"></i>${fmtWhen(d.session.session_id, d.session.started_at)}</th>`).join("")}</tr></thead>`;
+  const head = `<thead><tr><th></th>${rows.map((d, i) => `<th><i class="sw" style="background:${THEME.series[i]}"></i>${fmtWhen(d.session.session_id, d.session.started_at)}</th>`).join("")}</tr></thead>`;
   const body = metrics.map(([label, get, fmt, best]) => {
     const vals = rows.map((d) => get(d.session));
     const bestVal = best === "max" ? Math.max(...vals) : null;
@@ -372,7 +387,7 @@ function drawLine(canvas, series, opts = {}) {
   const pad = { l: 40, r: 12, t: 12, b: 24 };
   const allX = series.flatMap((s) => s.x), allY = series.flatMap((s) => s.y).filter((v) => v != null);
   if (!allX.length || !allY.length) {
-    ctx.fillStyle = "#70746b"; ctx.font = "13px system-ui"; ctx.fillText(t("noSamples"), pad.l, H / 2);
+    ctx.fillStyle = THEME.muted; ctx.font = "13px system-ui"; ctx.fillText(t("noSamples"), pad.l, H / 2);
     canvas.onmousemove = canvas.onmouseleave = null; return;
   }
   const xMax = Math.max(...allX, 1);
@@ -382,8 +397,8 @@ function drawLine(canvas, series, opts = {}) {
 
   const base = () => {
     ctx.clearRect(0, 0, W, H);
-    ctx.strokeStyle = "#e0e2da"; ctx.lineWidth = 1;
-    ctx.fillStyle = "#70746b"; ctx.font = "11px system-ui"; ctx.textAlign = "right";
+    ctx.strokeStyle = THEME.grid; ctx.lineWidth = 1;
+    ctx.fillStyle = THEME.muted; ctx.font = "11px system-ui"; ctx.textAlign = "right";
     for (let i = 0; i <= 4; i++) {
       const y = yMin + ((yMax - yMin) / 4) * i;
       ctx.beginPath(); ctx.moveTo(pad.l, sy(y)); ctx.lineTo(W - pad.r, sy(y)); ctx.stroke();
@@ -394,8 +409,10 @@ function drawLine(canvas, series, opts = {}) {
     for (let x = 0; x <= xMax; x += step) ctx.fillText(fmtDur(x), sx(x), H - 6);
 
     for (const s of series) {
+      ctx.save();
+      if (s.ghost) ctx.globalAlpha = 0.45;   // raw trace behind its smoothed line
       if (s.fill) {
-        ctx.fillStyle = s.color + "55"; ctx.beginPath(); ctx.moveTo(sx(s.x[0]), sy(yMin));
+        ctx.fillStyle = s.color + "33"; ctx.beginPath(); ctx.moveTo(sx(s.x[0]), sy(yMin));
         s.x.forEach((x, i) => { if (s.y[i] != null) ctx.lineTo(sx(x), sy(s.y[i])); });
         ctx.lineTo(sx(s.x[s.x.length - 1]), sy(yMin)); ctx.closePath(); ctx.fill();
       }
@@ -410,12 +427,13 @@ function drawLine(canvas, series, opts = {}) {
         prev = y;
       });
       ctx.stroke();
+      ctx.restore();
     }
     if (opts.avg) {
-      ctx.strokeStyle = "#2a2d31"; ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
+      ctx.strokeStyle = THEME.ink; ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(pad.l, sy(opts.avg)); ctx.lineTo(W - pad.r, sy(opts.avg)); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = "#2a2d31"; ctx.textAlign = "left"; ctx.font = "10px system-ui";
+      ctx.fillStyle = THEME.ink; ctx.textAlign = "left"; ctx.font = "10px system-ui";
       ctx.fillText(`${t("avg")} ${opts.yFmt ? opts.yFmt(opts.avg) : opts.avg}`, pad.l + 4, sy(opts.avg) - 4);
     }
   };
@@ -430,7 +448,7 @@ function drawLine(canvas, series, opts = {}) {
     while (idx < top.x.length - 1 && top.x[idx + 1] < t) idx++;
     const v = top.y[idx];
     base();
-    ctx.strokeStyle = "#2a2d31"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx(t), pad.t); ctx.lineTo(sx(t), H - pad.b); ctx.stroke();
+    ctx.strokeStyle = THEME.ink; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx(t), pad.t); ctx.lineTo(sx(t), H - pad.b); ctx.stroke();
     if (v != null) { ctx.fillStyle = top.color; ctx.beginPath(); ctx.arc(sx(top.x[idx]), sy(v), 4, 0, Math.PI * 2); ctx.fill(); }
     if (opts.readout) opts.readout.textContent = v != null && opts.fmt ? opts.fmt(top.x[idx], v) : "";
   };
@@ -446,7 +464,7 @@ function drawBars(canvas, items, opts = {}) {
 
   const base = (hi = -1) => {
     ctx.clearRect(0, 0, W, H);
-    ctx.strokeStyle = "#e0e2da"; ctx.lineWidth = 1; ctx.fillStyle = "#70746b"; ctx.font = "11px system-ui"; ctx.textAlign = "right";
+    ctx.strokeStyle = THEME.grid; ctx.lineWidth = 1; ctx.fillStyle = THEME.muted; ctx.font = "11px system-ui"; ctx.textAlign = "right";
     for (let i = 0; i <= 3; i++) {
       const v = (max / 3) * i;
       ctx.beginPath(); ctx.moveTo(pad.l, sy(v)); ctx.lineTo(W - pad.r, sy(v)); ctx.stroke();
@@ -456,9 +474,13 @@ function drawBars(canvas, items, opts = {}) {
     const every = Math.ceil(n / Math.max(1, Math.floor((W - pad.l) / 50)));
     items.forEach((it, i) => {
       const x = pad.l + slot * i + slot / 2;
-      ctx.fillStyle = i === hi ? "#2a2d31" : it.id === selected ? "#c8a878" : OLIVE;
-      ctx.fillRect(x - bw / 2, sy(it.v), bw, H - pad.b - sy(it.v));
-      if (i % every === 0) { ctx.fillStyle = "#70746b"; ctx.fillText(it.label, x, H - 6); }
+      ctx.fillStyle = i === hi ? THEME.ink : it.id === selected ? THEME.accent : THEME.series[0];
+      const top = sy(it.v), h = H - pad.b - top;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x - bw / 2, top, bw, h, [4, 4, 0, 0]);
+      else ctx.rect(x - bw / 2, top, bw, h);
+      ctx.fill();
+      if (i % every === 0) { ctx.fillStyle = THEME.muted; ctx.fillText(it.label, x, H - 6); }
     });
   };
   base();
@@ -478,6 +500,13 @@ function drawBars(canvas, items, opts = {}) {
 }
 
 window.addEventListener("resize", () => { if (selected) selectSession(selected); renderCompare(); });
+
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", async () => {
+  readTheme();
+  await loadSessions();
+  if (selected) await selectSession(selected);
+  renderCompare();
+});
 
 // --- Settings ------------------------------------------------------------
 

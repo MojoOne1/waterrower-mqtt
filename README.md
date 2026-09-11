@@ -320,6 +320,8 @@ docker compose -f docker-compose.build.yml up -d --build
   samples and a speed/stroke-rate chart), plus one workbook across all
   sessions with totals and a distance chart
 - Per-session delete
+- Follows the system's light/dark setting; the chart colours are a
+  colourblind-safe categorical set, checked against both surfaces
 
 If the tracker is started after the ESP, the samples from before are
 missing – but the session ID carries the start time, so ordering stays

@@ -91,24 +91,23 @@ def build_session(session: dict, samples: list[dict]) -> bytes:
         row[3].number_format = _SPLIT
     _widths(sh, [10, 12, 14, 12, 12, 18, 10, 8])
 
+    # One chart per measure: two y-scales in a single plot make unrelated
+    # curves look correlated, so speed and stroke rate get their own.
     if len(samples) > 1:
         last = len(samples) + 1
-        chart = LineChart()
-        chart.title = "Speed and stroke rate"
-        chart.height, chart.width = 9, 26
-        chart.y_axis.title = "m/s"
-        chart.x_axis.title = "Time (s)"
-        chart.add_data(Reference(sh, min_col=4, min_row=1, max_row=last), titles_from_data=True)
-        chart.set_categories(Reference(sh, min_col=1, min_row=2, max_row=last))
-        spm = LineChart()
-        spm.add_data(Reference(sh, min_col=6, min_row=1, max_row=last), titles_from_data=True)
-        spm.y_axis.axId = 200
-        spm.y_axis.title = "spm"
-        chart.y_axis.crosses = "max"
-        chart += spm
-        for series in chart.series:
-            series.smooth = False
-        ws.add_chart(chart, "D3")
+        cats = Reference(sh, min_col=1, min_row=2, max_row=last)
+        for col, title, unit, anchor in ((4, "Speed", "m/s", "D3"), (6, "Stroke rate", "spm", "D21")):
+            chart = LineChart()
+            chart.title = title
+            chart.height, chart.width = 8, 26
+            chart.y_axis.title = unit
+            chart.x_axis.title = "Time (s)"
+            chart.add_data(Reference(sh, min_col=col, min_row=1, max_row=last), titles_from_data=True)
+            chart.set_categories(cats)
+            chart.legend = None      # single series, the title names it
+            for series in chart.series:
+                series.smooth = False
+            ws.add_chart(chart, anchor)
 
     return _save(wb)
 
@@ -158,6 +157,7 @@ def build_overview(sessions: list[dict]) -> bytes:
         chart.height, chart.width = 9, 26
         chart.add_data(Reference(ws, min_col=3, min_row=1, max_row=last), titles_from_data=True)
         chart.set_categories(Reference(ws, min_col=1, min_row=2, max_row=last))
+        chart.legend = None
         ws.add_chart(chart, f"A{total + 2}")
 
     return _save(wb)
