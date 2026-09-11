@@ -106,11 +106,31 @@ def me(request: Request):
     return auth.public_athlete(athlete)
 
 
-# Two windows on purpose. The per-address one is the tight limit; the
-# per-name one still applies when the guesses come from everywhere at once,
-# and is loose enough that it is no way to lock a friend out on a whim.
-BY_IP = auth.Throttle(limit=10, window_s=900)
-BY_NAME = auth.Throttle(limit=30, window_s=900)
+# Three policies, all adjustable in the arena. The per-address one is the
+# tight limit; the per-name one still bites when the guesses arrive from
+# everywhere at once, and is loose enough that it is no way to lock a
+# friend out on a whim; the invitation one is separate because a wrong code
+# says nothing about who is trying it.
+BY_IP = auth.Throttle(limit=10, block_s=900, label="login_ip")
+BY_NAME = auth.Throttle(limit=30, block_s=900, label="login_name")
+INVITE_IP = auth.Throttle(limit=10, block_s=3600, label="invite_ip")
+
+POLICIES = {"login_ip": BY_IP, "login_name": BY_NAME, "invite_ip": INVITE_IP}
+
+
+def security_settings() -> dict:
+    """Defaults, with whatever an admin has saved on top."""
+    values = dict(config.SECURITY_DEFAULTS)
+    values.update(db.settings().get("security") or {})
+    return values
+
+
+def apply_security(values: dict | None = None) -> dict:
+    values = values or security_settings()
+    for name, throttle in POLICIES.items():
+        throttle.configure(int(values[f"{name}_limit"]),
+                           float(values[f"{name}_minutes"]) * 60)
+    return values
 
 
 @router.post("/api/login")
@@ -147,23 +167,31 @@ def logout(request: Request, response: Response):
     return {"ok": True}
 
 
-@router.get("/api/invite/{code}")
-def check_invite(code: str, request: Request):
+def _check_invite_code(code: str, request: Request) -> dict:
+    """Shared by looking an invitation up and redeeming it - both are a
+    guess at a code, and both have to count towards the same lockout."""
     ip = auth.client_ip(request)
-    if BY_IP.retry_after(ip):
-        raise HTTPException(429, "Too many attempts")
+    wait = INVITE_IP.retry_after(ip)
+    if wait:
+        raise HTTPException(429, f"Too many attempts - try again in {int(wait / 60) + 1} min",
+                            headers={"Retry-After": str(int(wait))})
     athlete = db.athlete_by_invite(code)
     if not athlete:
-        BY_IP.record(ip)          # codes are 96 bits, but do not invite the try
+        INVITE_IP.record(ip)
         raise HTTPException(404, "This invitation is not valid any more")
+    INVITE_IP.clear(ip)
+    return athlete
+
+
+@router.get("/api/invite/{code}")
+def check_invite(code: str, request: Request):
+    athlete = _check_invite_code(code, request)
     return {"name": athlete["name"], "display_name": athlete["display_name"]}
 
 
 @router.post("/api/join")
-def join_invite(body: JoinInvite, response: Response):
-    athlete = db.athlete_by_invite(body.code)
-    if not athlete:
-        raise HTTPException(404, "This invitation is not valid any more")
+def join_invite(body: JoinInvite, request: Request, response: Response):
+    athlete = _check_invite_code(body.code, request)
     db.set_password(athlete["id"], auth.hash_password(body.password))
     if body.display_name.strip():
         db.update_athlete(athlete["id"], body.display_name.strip(), athlete["color"])
@@ -516,6 +544,56 @@ def head_to_head(_: dict = Depends(auth.current_athlete)):
         "races": len(by_race),
         "pairs": [{"winner": a, "loser": b, "wins": n} for (a, b), n in wins.items()],
     }
+
+
+# --- Security --------------------------------------------------------------
+
+class SecurityPatch(BaseModel):
+    login_ip_limit: int = Field(ge=0, le=1000)
+    login_ip_minutes: int = Field(ge=1, le=10080)
+    login_name_limit: int = Field(ge=0, le=1000)
+    login_name_minutes: int = Field(ge=1, le=10080)
+    invite_ip_limit: int = Field(ge=0, le=1000)
+    invite_ip_minutes: int = Field(ge=1, le=10080)
+
+
+class Unblock(BaseModel):
+    policy: str = ""
+    key: str = ""
+
+
+def _blocked() -> list[dict]:
+    return [b for throttle in POLICIES.values() for b in throttle.blocked()]
+
+
+@router.get("/api/security")
+def get_security(_: dict = Depends(auth.current_admin)):
+    return {"settings": security_settings(), "blocked": _blocked()}
+
+
+@router.post("/api/security")
+def set_security(body: SecurityPatch, _: dict = Depends(auth.current_admin)):
+    values = body.model_dump()
+    db.save_settings({"security": values})
+    apply_security(values)
+    log.info("Security settings changed: %s", values)
+    return {"settings": values, "blocked": _blocked()}
+
+
+@router.post("/api/security/unblock")
+def unblock(body: Unblock, _: dict = Depends(auth.current_admin)):
+    """Let somebody back in - a locked-out friend, or yourself after a
+    typo. Without a key the whole policy is cleared; without either, all
+    of them."""
+    if body.policy and body.policy not in POLICIES:
+        raise HTTPException(404, "No such policy")
+    targets = [POLICIES[body.policy]] if body.policy else list(POLICIES.values())
+    for throttle in targets:
+        if body.key:
+            throttle.clear(body.key)
+        else:
+            throttle.clear_all()
+    return {"blocked": _blocked()}
 
 
 @router.post("/api/reindex")

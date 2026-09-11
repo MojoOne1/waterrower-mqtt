@@ -54,6 +54,7 @@ def bootstrap() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     bootstrap()
+    log.info("Security: %s", api.apply_security())
     # A race cannot survive a restart: its lanes live in memory, and the
     # sample stream it was built on is gone.
     for r in db.list_races(limit=20):

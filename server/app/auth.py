@@ -19,43 +19,78 @@ _SCRYPT = dict(n=2 ** 14, r=8, p=1, dklen=32)
 
 
 class Throttle:
-    """A sliding window of failures, to slow password guessing down.
+    """Count failures, then lock out for a while.
+
+    `limit` failures within `block_s` seconds of each other lock the key
+    until `block_s` after the last one. The same number answers both "how
+    long is an attempt remembered" and "how long is the lockout", which
+    keeps it to the two knobs worth putting in front of somebody. A limit
+    of 0 turns the policy off.
 
     scrypt already costs about a tenth of a second per attempt, which caps
     guessing at a few per second - but a few per second, left running for a
     week, is still a lot of guesses. In memory is enough here: one process,
-    and a restart that forgets the counters is not the attack to worry about.
+    and a restart that forgets the counters is not the attack to worry
+    about.
     """
 
-    def __init__(self, limit: int, window_s: float):
+    def __init__(self, limit: int, block_s: float, label: str = ""):
         self.limit = limit
-        self.window = window_s
+        self.block_s = block_s
+        self.label = label
         self._hits: dict[str, list[float]] = {}
 
-    def retry_after(self, key: str) -> float:
-        """Seconds the caller has to wait; 0 when they may try."""
-        now = time.time()
-        hits = [t for t in self._hits.get(key, ()) if now - t < self.window]
+    def configure(self, limit: int, block_s: float) -> None:
+        self.limit = int(limit)
+        self.block_s = float(block_s)
+
+    def _recent(self, key: str, now: float) -> list[float]:
+        hits = [t for t in self._hits.get(key, ()) if now - t < self.block_s]
         if hits:
             self._hits[key] = hits
         else:
             self._hits.pop(key, None)
+        return hits
+
+    def retry_after(self, key: str) -> float:
+        """Seconds the caller has to wait; 0 when they may try."""
+        if self.limit <= 0:
+            return 0.0
+        now = time.time()
+        hits = self._recent(key, now)
         if len(hits) < self.limit:
             return 0.0
-        return round(self.window - (now - hits[0]), 1)
+        return round(max(0.0, hits[-1] + self.block_s - now), 1)
 
     def record(self, key: str) -> None:
+        if self.limit <= 0:
+            return
         now = time.time()
         self._hits.setdefault(key, []).append(now)
         if len(self._hits) > 1000:
             # Somebody is rotating keys at us; drop whatever has aged out
             # rather than growing for ever.
             for k in [k for k, v in self._hits.items()
-                      if not v or now - v[-1] > self.window]:
+                      if not v or now - v[-1] > self.block_s]:
                 self._hits.pop(k, None)
 
     def clear(self, key: str) -> None:
         self._hits.pop(key, None)
+
+    def clear_all(self) -> None:
+        self._hits.clear()
+
+    def attempts(self, key: str) -> int:
+        return len(self._recent(key, time.time()))
+
+    def blocked(self) -> list[dict]:
+        """What is locked out right now, for the admin panel."""
+        out = []
+        for key in list(self._hits):
+            wait = self.retry_after(key)
+            if wait > 0:
+                out.append({"policy": self.label, "key": key, "seconds": wait})
+        return out
 
 
 def client_ip(request: Request) -> str:

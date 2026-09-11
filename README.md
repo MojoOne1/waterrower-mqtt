@@ -498,14 +498,40 @@ race already being rowed.
 Lane colours are handed out automatically and are used consistently for
 that athlete – in the live tiles, the charts, the lanes and the tables.
 
-Since the arena is reachable from the internet, sign-in is rate limited:
-ten failed attempts from one address within fifteen minutes, or thirty
-against one name, and the next one is answered with `429` and a
-`Retry-After` until the window passes. Passwords are hashed with scrypt,
-device tokens and browser sessions are stored as SHA-256 – but everything
-else about an athlete, their invitation code included, sits in
-`./data/arena.db`. That file is the one thing worth backing up, and the
-one thing worth not handing around.
+### Locking out guessers
+
+The arena is reachable from the internet, so guessing should not be free.
+Three lockouts, all of them set in the arena under **Konto → Sicherheit**
+and kept in the database:
+
+| Policy | Counts | Default |
+|---|---|---|
+| Sign-in per address | one address guessing at any account | 10 failures, 15 min |
+| Sign-in per account | one account guessed at from anywhere | 30 failures, 15 min |
+| Invitations per address | wrong invitation codes from one address | 10 failures, 60 min |
+
+Each is *that many failures, then locked out for that many minutes* – and
+the same span is how long a failure is remembered, so somebody who stops
+trying ages out on their own. A failure count of `0` switches that policy
+off. The reply is a `429` with a `Retry-After`, and the sign-in form says
+so rather than letting it read as a wrong password.
+
+The per-account policy is the loose one on purpose: it is the one that
+could be used to lock a friend out, so it should take some doing.
+
+Below the settings is **Aktive Sperren** – who is locked out right now,
+which policy caught them and how long is left, with a link to lift one and
+a button to lift them all. That is the way back in after a fat-fingered
+password, and how you see that somebody is hammering the door.
+
+The `ARENA_LOGIN_IP_LIMIT`, `ARENA_LOGIN_NAME_LIMIT`, `ARENA_INVITE_IP_LIMIT`
+variables (and their `_MINUTES` counterparts) set the starting values only;
+once an admin saves the form, the database wins.
+
+Passwords are hashed with scrypt, device tokens and browser sessions are
+stored as SHA-256 – but everything else about an athlete, their invitation
+code included, sits in `./data/arena.db`. That file is the one thing worth
+backing up, and the one thing worth not handing around.
 
 ### Racing
 
@@ -584,6 +610,8 @@ Everything needs a session cookie; the uplink uses its own token.
 | `POST /api/session/end` | Close my own session on my own monitor |
 | `GET /api/sessions`, `/api/sessions/{id}` | All athletes' sessions, one with its samples |
 | `GET /api/records`, `/api/totals`, `/api/h2h` | Leaderboards, totals, head to head |
+| `GET` / `POST /api/security` | Lockout policies and who is locked out (admin) |
+| `POST /api/security/unblock` | Lift one lockout, or all of them (admin) |
 | `POST /api/race`, `/api/race/join`, `/api/race/ready`, `/api/race/ghost`, `/api/race/start`, `/api/race/finish` | Run a race |
 | `GET /api/races` | Race history with placings |
 | `WS /ws/live` | Live tiles and race ticks for a browser |

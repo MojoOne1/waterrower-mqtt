@@ -6,6 +6,7 @@ arriving from two ESPs (they are local timestamps) can no longer collide:
 sessions get a surrogate key and (athlete_id, remote_id) is the unique one.
 """
 
+import json
 import sqlite3
 import threading
 import time
@@ -24,6 +25,12 @@ CREATE TABLE IF NOT EXISTS athletes (
     is_admin      INTEGER NOT NULL DEFAULT 0,
     color         TEXT NOT NULL DEFAULT '',      -- lane colour, also used in charts
     created_at    REAL NOT NULL
+);
+
+-- Anything an admin can change at runtime, one JSON value per key.
+CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS device_tokens (
@@ -132,6 +139,26 @@ class Database:
             conn.commit()
         finally:
             conn.close()
+
+    # --- Settings ---------------------------------------------------------
+
+    def settings(self) -> dict:
+        with self._conn() as c:
+            rows = c.execute("SELECT key, value FROM settings").fetchall()
+        out = {}
+        for r in rows:
+            try:
+                out[r["key"]] = json.loads(r["value"])
+            except json.JSONDecodeError:
+                pass
+        return out
+
+    def save_settings(self, values: dict) -> None:
+        with self._lock, self._conn() as c:
+            c.executemany(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                [(k, json.dumps(v)) for k, v in values.items()],
+            )
 
     # --- Athletes ---------------------------------------------------------
 

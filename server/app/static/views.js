@@ -427,8 +427,126 @@ VIEWS.account = async function account() {
 
   paintProfile();
   await paintTokens();
-  if (STATE.me.is_admin) await paintAdmin();
+  if (STATE.me.is_admin) {
+    await paintSecurity();
+    await paintAdmin();
+  }
 };
+
+// --- Security (admin) -----------------------------------------------------
+
+async function paintSecurity() {
+  const host = $("acc-security");
+  if (!host) return;
+  host.innerHTML = "";
+  host.appendChild(el("h2", null, t("accSecurity")));
+
+  let data;
+  try { data = await api("/api/security"); } catch { return; }
+
+  const form = el("form", "card");
+  form.appendChild(el("p", "hint", t("secIntro")));
+  const inputs = {};
+  const policy = (name, label, hint) => {
+    const row = el("div", "sec-row");
+    const head = el("div", "sec-head");
+    head.appendChild(el("strong", null, label));
+    head.appendChild(el("span", "sub", hint));
+    row.appendChild(head);
+    for (const [suffix, caption, min] of [["limit", t("secLimit"), "0"],
+                                          ["minutes", t("secMinutes"), "1"]]) {
+      const key = `${name}_${suffix}`;
+      const lab = el("label");
+      lab.appendChild(el("span", null, caption));
+      const input = el("input");
+      input.type = "number";
+      input.min = min;
+      input.max = "10080";
+      input.required = true;
+      input.value = String(data.settings[key]);
+      inputs[key] = input;
+      lab.appendChild(input);
+      row.appendChild(lab);
+    }
+    form.appendChild(row);
+  };
+  policy("login_ip", t("secLoginIp"), t("secLoginIpHint"));
+  policy("login_name", t("secLoginName"), t("secLoginNameHint"));
+  policy("invite_ip", t("secInviteIp"), t("secInviteIpHint"));
+  form.appendChild(el("p", "hint", t("secZero")));
+
+  const foot = el("div", "form-foot");
+  const msg = el("span", "form-msg");
+  foot.appendChild(msg);
+  const save = el("button", "primary", t("btnSave"));
+  save.type = "submit";
+  foot.appendChild(save);
+  form.appendChild(foot);
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const body = {};
+    for (const [key, input] of Object.entries(inputs)) body[key] = Number(input.value);
+    try {
+      await api("/api/security", { method: "POST", body });
+      msg.className = "form-msg ok";
+      msg.textContent = t("saved");
+      paintBlocks(data.blocked, host);
+    } catch (err) {
+      msg.className = "form-msg err";
+      msg.textContent = err.message || t("saveFailed");
+    }
+  };
+  host.appendChild(form);
+  paintBlocks(data.blocked, host);
+}
+
+/* The list of who is locked out right now, and the way to let them back
+   in - a friend who fat-fingered their password should not have to wait
+   out the clock because nobody can lift it. */
+function paintBlocks(blocked, host) {
+  const old = host.querySelector(".blocks");
+  if (old) old.remove();
+  const box = el("div", "blocks");
+  const head = el("div", "blocks-head");
+  head.appendChild(el("h3", null, t("secBlocked")));
+  const refresh = el("a", null, t("secRefresh"));
+  refresh.href = "#";
+  refresh.onclick = (e) => { e.preventDefault(); paintSecurity(); };
+  head.appendChild(refresh);
+  box.appendChild(head);
+
+  if (!blocked.length) {
+    box.appendChild(el("p", "empty", t("secNoBlocks")));
+    host.appendChild(box);
+    return;
+  }
+
+  const list = el("ul", "tokens");
+  for (const b of blocked) {
+    const li = el("li");
+    li.appendChild(el("span", "tag", t(`pol_${b.policy}`)));
+    li.appendChild(el("strong", null, b.key));
+    li.appendChild(el("span", "sub", t("secFor", fmtDur(b.seconds))));
+    const lift = el("a", null, t("secUnblock"));
+    lift.href = "#";
+    lift.onclick = async (e) => {
+      e.preventDefault();
+      await api("/api/security/unblock", { method: "POST", body: { policy: b.policy, key: b.key } });
+      paintSecurity();
+    };
+    li.appendChild(lift);
+    list.appendChild(li);
+  }
+  box.appendChild(list);
+
+  const all = el("button", null, t("secUnblockAll"));
+  all.onclick = async () => {
+    await api("/api/security/unblock", { method: "POST", body: {} });
+    paintSecurity();
+  };
+  box.appendChild(all);
+  host.appendChild(box);
+}
 
 function paintProfile() {
   const host = $("acc-profile");
