@@ -67,6 +67,14 @@ class NewRace(BaseModel):
     name: str = ""
     mode: str = "distance"
     target: int = 2000
+    template_id: int | None = None
+
+
+class NewTemplate(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    mode: str = "distance"
+    target: int = 2000
+    note: str = Field(default="", max_length=140)
 
 
 class Ready(BaseModel):
@@ -113,11 +121,9 @@ def me(request: Request):
 # everywhere at once, and is loose enough that it is no way to lock a
 # friend out on a whim; the invitation one is separate because a wrong code
 # says nothing about who is trying it.
-BY_IP = auth.Throttle(limit=10, block_s=900, label="login_ip")
-BY_NAME = auth.Throttle(limit=30, block_s=900, label="login_name")
-INVITE_IP = auth.Throttle(limit=10, block_s=3600, label="invite_ip")
-
-POLICIES = {"login_ip": BY_IP, "login_name": BY_NAME, "invite_ip": INVITE_IP}
+BY_IP, BY_NAME = auth.BY_IP, auth.BY_NAME
+INVITE_IP, UPLINK_IP = auth.INVITE_IP, auth.UPLINK_IP
+POLICIES = auth.POLICIES
 
 
 def security_settings() -> dict:
@@ -210,13 +216,20 @@ def join_invite(body: JoinInvite, request: Request, response: Response):
 
 
 @router.post("/api/password")
-def change_password(body: NewPassword, athlete: dict = Depends(auth.current_athlete)):
+def change_password(body: NewPassword, response: Response,
+                    athlete: dict = Depends(auth.current_athlete)):
     if not auth.verify_password(body.old_password, athlete["password_hash"]):
         raise HTTPException(403, "Current password is wrong")
     problem = auth.password_problem(body.password)
     if problem:
         raise HTTPException(400, problem)
     db.set_password(athlete["id"], auth.hash_password(body.password))
+    # A stolen cookie outlives a password change otherwise, which is the
+    # one moment somebody is most likely trying to get rid of one.
+    db.drop_web_sessions_of(athlete["id"])
+    token = auth.new_token()
+    db.add_web_session(auth.token_hash(token), athlete["id"], config.SESSION_DAYS * 86400)
+    auth.set_cookie(response, token)
     return {"ok": True}
 
 
@@ -385,15 +398,15 @@ def active_race(_: dict = Depends(auth.current_athlete)):
 
 @router.post("/api/race")
 def create_race(body: NewRace, athlete: dict = Depends(auth.current_athlete)):
-    if body.mode not in ("distance", "time", "free"):
-        raise HTTPException(400, "Unknown race mode")
-    target = max(0, int(body.target))
-    if body.mode == "distance" and not 100 <= target <= 100000:
-        raise HTTPException(400, "Distance must be between 100 m and 100 km")
-    if body.mode == "time" and not 60 <= target <= 14400:
-        raise HTTPException(400, "Duration must be between 1 minute and 4 hours")
+    name, mode, target = body.name, body.mode, body.target
+    if body.template_id is not None:
+        tpl = db.template(body.template_id)
+        if not tpl:
+            raise HTTPException(404, "No such template")
+        name, mode, target = tpl["name"], tpl["mode"], tpl["target"]
+    target = _check_target(mode, max(0, int(target)))
     try:
-        r = races.create(body.name.strip()[:60], body.mode, target, athlete)
+        r = races.create(name.strip()[:60], mode, target, athlete)
     except ValueError as e:
         raise HTTPException(409, str(e))
     return r.public()
@@ -485,6 +498,41 @@ def clear_race(_: dict = Depends(auth.current_athlete)):
     return {"ok": True, "cleared": cleared}
 
 
+# --- Race templates --------------------------------------------------------
+
+def _check_target(mode: str, target: int) -> int:
+    """The same limits the race form is held to - a template must not be
+    able to define a race nobody could have created by hand."""
+    if mode not in ("distance", "time", "free"):
+        raise HTTPException(400, "Unknown race mode")
+    if mode == "free":
+        return 0
+    target = int(target)
+    if mode == "distance" and not 100 <= target <= 100000:
+        raise HTTPException(400, "Distance must be between 100 m and 100 km")
+    if mode == "time" and not 60 <= target <= 14400:
+        raise HTTPException(400, "Duration must be between 1 minute and 4 hours")
+    return target
+
+
+@router.get("/api/templates")
+def list_templates(_: dict = Depends(auth.current_athlete)):
+    return db.templates()
+
+
+@router.post("/api/templates")
+def create_template(body: NewTemplate, _: dict = Depends(auth.current_admin)):
+    target = _check_target(body.mode, body.target)
+    tid = db.add_template(body.name.strip(), body.mode, target, body.note.strip())
+    return db.template(tid)
+
+
+@router.delete("/api/templates/{template_id}")
+def delete_template(template_id: int, _: dict = Depends(auth.current_admin)):
+    db.delete_template(template_id)
+    return {"ok": True}
+
+
 @router.get("/api/races")
 def list_races(limit: int = 50, _: dict = Depends(auth.current_athlete)):
     return db.list_races(min(limit, 200))
@@ -565,6 +613,8 @@ class SecurityPatch(BaseModel):
     login_name_minutes: int = Field(ge=1, le=10080)
     invite_ip_limit: int = Field(ge=0, le=1000)
     invite_ip_minutes: int = Field(ge=1, le=10080)
+    uplink_ip_limit: int = Field(ge=0, le=1000)
+    uplink_ip_minutes: int = Field(ge=1, le=10080)
 
 
 class Unblock(BaseModel):

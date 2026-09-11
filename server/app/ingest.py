@@ -43,6 +43,15 @@ MAX_BACKFILL_ROWS = 20000
 
 
 async def uplink_endpoint(websocket: WebSocket, db, hub) -> None:
+    ip = websocket.client.host if websocket.client else "?"
+    # Guessing a 256-bit token is hopeless, so this is not about guessing:
+    # without it, anyone can open sockets here all day for free, each one
+    # holding a task for fifteen seconds waiting on a hello.
+    wait = auth.UPLINK_IP.retry_after(ip)
+    if wait:
+        await websocket.close(code=4429, reason="too many attempts")
+        return
+
     await websocket.accept()
     athlete = None
     uplink = None
@@ -50,13 +59,17 @@ async def uplink_endpoint(websocket: WebSocket, db, hub) -> None:
     try:
         hello = await asyncio.wait_for(websocket.receive_json(), timeout=15)
         if hello.get("type") != "hello" or not hello.get("token"):
+            auth.UPLINK_IP.record(ip)
             await websocket.close(code=4401, reason="hello expected")
             return
         owner = await asyncio.to_thread(db.token_owner, auth.token_hash(hello["token"]))
         if not owner:
+            auth.UPLINK_IP.record(ip)
+            await asyncio.to_thread(db.record_failure, "uplink", "", ip)
             await websocket.close(code=4403, reason="unknown token")
-            log.warning("Uplink rejected: unknown token")
+            log.warning("Uplink rejected from %s: unknown token", ip)
             return
+        auth.UPLINK_IP.clear(ip)
 
         athlete = owner
         await asyncio.to_thread(db.touch_token, owner["token_id"])

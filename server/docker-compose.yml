@@ -58,6 +58,11 @@ services:
       ARENA_ADMIN_USER: admin
       ARENA_ADMIN_NAME: Admin
       ARENA_ADMIN_PASSWORD: "${ARENA_ADMIN_PASSWORD:?put ARENA_ADMIN_PASSWORD in .env}"
+      # Lost the admin password? Put a new one above, set this to 1 and
+      # restart: the account keeps its history, the password is replaced
+      # and every open session of it ends. Set it back to 0 afterwards, or
+      # every restart puts that password back.
+      ARENA_ADMIN_RESET: "${ARENA_ADMIN_RESET:-0}"
       # Cloudflare terminates TLS, so the cookie stays Secure even though
       # this container is spoken to over plain HTTP. Set to 0 while you are
       # testing over http://<vm>:8090 - a Secure cookie is dropped there and

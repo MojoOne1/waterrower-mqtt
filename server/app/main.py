@@ -37,9 +37,25 @@ api.init(db, hub, races)
 
 
 def bootstrap() -> None:
-    """First start: create the admin so there is a way in at all."""
+    """First start: create the admin so there is a way in at all.
+
+    And, with ARENA_ADMIN_RESET=1, the way back in when that password is
+    lost - the account keeps its history, only the password and the open
+    browser sessions go.
+    """
     existing = db.athlete_by_name(config.ADMIN_USER)
     if existing:
+        if config.ADMIN_RESET and config.ADMIN_PASSWORD:
+            db.set_password(existing["id"], auth.hash_password(config.ADMIN_PASSWORD))
+            db.drop_web_sessions_of(existing["id"])
+            if not existing["is_admin"]:
+                db.set_admin(existing["id"], True)
+            log.warning("ARENA_ADMIN_RESET: reset the password of %r and signed "
+                        "it out everywhere. Remove the variable again, or every "
+                        "restart puts this password back.", config.ADMIN_USER)
+        elif config.ADMIN_RESET:
+            log.warning("ARENA_ADMIN_RESET is set but ARENA_ADMIN_PASSWORD is "
+                        "empty - nothing to reset to.")
         return
     if not config.ADMIN_PASSWORD:
         if db.count_athletes() == 0:
@@ -56,9 +72,28 @@ def bootstrap() -> None:
     log.info("Created admin %r", config.ADMIN_USER)
 
 
+DEFAULT_TEMPLATES = [
+    ("2000 m", "distance", 2000, "Die klassische Renndistanz."),
+    ("500 m Sprint", "distance", 500, "Kurz und alles rein."),
+    ("5000 m", "distance", 5000, "Lange Distanz, gleichmäßig fahren."),
+    ("20 Minuten", "time", 1200, "Wer kommt in zwanzig Minuten am weitesten?"),
+    ("Frei rudern", "free", 0, "Zusammen rudern, ohne Wertung."),
+]
+
+
+def seed_templates() -> None:
+    """Only on an empty table: an admin who deletes them all means it."""
+    if db.count_templates():
+        return
+    for name, mode, target, note in DEFAULT_TEMPLATES:
+        db.add_template(name, mode, target, note)
+    log.info("Seeded %d race templates", len(DEFAULT_TEMPLATES))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     bootstrap()
+    seed_templates()
     log.info("Security: %s", api.apply_security())
     dropped = db.prune_failures(time.time() - api.FAILURE_KEEP_S)
     if dropped:

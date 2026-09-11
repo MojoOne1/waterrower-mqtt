@@ -49,6 +49,7 @@ function paintRace() {
 
   if (!r || r.state === "aborted") {
     paintNewRaceForm();
+    paintTemplates();
     return;
   }
   if (r.state === "lobby") return paintLobby(host, r);
@@ -59,11 +60,40 @@ function paintRace() {
 
 // --- Create ---------------------------------------------------------------
 
+async function paintTemplates() {
+  const host = $("race-new");
+  if (!host) return;
+  const templates = await api("/api/templates").catch(() => []);
+  if (!templates.length || $("race-live").children.length) return;
+  const box = el("section", "card");
+  box.appendChild(el("h2", null, t("templates")));
+  box.appendChild(el("p", "hint", t("templatesHint")));
+  const list = el("div", "template-list");
+  for (const tpl of templates) {
+    const b = el("button", "template");
+    b.type = "button";
+    b.appendChild(el("strong", null, tpl.name));
+    b.appendChild(el("span", "sub", raceLabel(tpl)));
+    if (tpl.note) b.appendChild(el("span", "note", tpl.note));
+    b.onclick = async () => {
+      try {
+        STATE.race = await api("/api/race", { method: "POST", body: { template_id: tpl.id } });
+        paintRace();
+      } catch (err) {
+        alert(err.status === 409 ? t("raceBusy") : err.message);
+      }
+    };
+    list.appendChild(b);
+  }
+  box.appendChild(list);
+  host.insertBefore(box, host.firstChild);
+}
+
 function paintNewRaceForm() {
   const host = $("race-new");
   if (!host) return;
   const form = el("form", "card");
-  form.appendChild(el("h2", null, t("newRace")));
+  form.appendChild(el("h2", null, t("ownRace")));
 
   const name = field(form, t("raceName"), "text");
   name.placeholder = lang === "de" ? "Dienstagabend" : "Tuesday night";

@@ -225,6 +225,10 @@ button.end-session { margin-top: 0.7rem; width: 100%; }
 .actions-bar { display: flex; gap: 0.6rem; flex-wrap: wrap; }
 .presets { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .presets button { font-size: 0.78rem; padding: 0.2rem 0.6rem; }
+.template-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.6rem; }
+button.template { display: flex; flex-direction: column; align-items: flex-start; gap: 0.1rem; text-align: left; padding: 0.6rem 0.8rem; border-left: 3px solid var(--accent); }
+button.template .sub { font-family: var(--mono); font-size: 0.8rem; color: var(--accent); }
+button.template .note { font-size: 0.75rem; color: var(--muted); }
 
 .lanes { display: flex; flex-direction: column; gap: 0.9rem; list-style: none; margin: 0; padding: 0; }
 .lobby-lanes li { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0; border-bottom: 1px solid var(--line); }

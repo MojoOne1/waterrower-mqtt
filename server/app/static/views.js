@@ -411,7 +411,9 @@ VIEWS.records = async function recordsView() {
       .sort((a, b) => b.wins - a.wins)
       .forEach((p) => {
         const li = el("li");
-        li.innerHTML = t("h2hLine", athleteName(p.winner), athleteName(p.loser), p.wins);
+        // textContent, not innerHTML: these are display names, and a
+        // display name is whatever its owner typed into the form.
+        li.textContent = t("h2hLine", athleteName(p.winner), athleteName(p.loser), p.wins);
         ul.appendChild(li);
       });
     hHost.appendChild(ul);
@@ -431,11 +433,93 @@ VIEWS.account = async function account() {
     $("acc-tokens").innerHTML = "";
     document.querySelectorAll('[data-i18n="accTokens"]').forEach((n) => { n.hidden = true; });
     await paintSecurity();
+    await paintTemplates_admin();
     await paintAdmin();
   } else {
     await paintTokens();
   }
 };
+
+// --- Race templates (admin) -----------------------------------------------
+
+async function paintTemplates_admin() {
+  const host = $("acc-templates");
+  if (!host) return;
+  const templates = await api("/api/templates").catch(() => []);
+  host.innerHTML = "";
+  host.appendChild(el("h2", null, t("templates")));
+  host.appendChild(el("p", "hint", t("templatesAdminHint")));
+
+  const list = el("ul", "tokens");
+  if (!templates.length) list.appendChild(el("li", "empty", t("templatesNone")));
+  for (const tpl of templates) {
+    const li = el("li");
+    li.appendChild(el("strong", null, tpl.name));
+    li.appendChild(el("span", "tag", raceLabel(tpl)));
+    li.appendChild(el("span", "sub", tpl.note || ""));
+    const del = el("a", null, t("btnDelete"));
+    del.href = "#";
+    del.onclick = async (e) => {
+      e.preventDefault();
+      await api(`/api/templates/${tpl.id}`, { method: "DELETE" });
+      paintTemplates_admin();
+    };
+    li.appendChild(del);
+    list.appendChild(li);
+  }
+  host.appendChild(list);
+
+  const form = el("form", "card");
+  form.appendChild(el("h3", null, t("templateNew")));
+  const name = field(form, t("raceName"), "text");
+  name.placeholder = "Dienstagabend";
+  const modeLabel = el("label");
+  modeLabel.appendChild(el("span", null, t("raceMode")));
+  const mode = el("select");
+  [["distance", "modeDistance"], ["time", "modeTime"], ["free", "modeFree"]]
+    .forEach(([v, key]) => mode.appendChild(new Option(t(key), v)));
+  modeLabel.appendChild(mode);
+  form.appendChild(modeLabel);
+  const targetLabel = el("label");
+  const targetUnit = el("span", null, `${t("raceTarget")} (${t("targetMetres")})`);
+  targetLabel.appendChild(targetUnit);
+  const target = el("input");
+  target.type = "number";
+  target.value = "2000";
+  targetLabel.appendChild(target);
+  form.appendChild(targetLabel);
+  mode.onchange = () => {
+    targetLabel.hidden = mode.value === "free";
+    targetUnit.textContent = `${t("raceTarget")} (${
+      mode.value === "distance" ? t("targetMetres") : t("targetMinutes")})`;
+    target.value = mode.value === "distance" ? "2000" : "20";
+  };
+  const note = field(form, t("templateNote"), "text");
+
+  const foot = el("div", "form-foot");
+  const msg = el("span", "form-msg");
+  foot.appendChild(msg);
+  const btn = el("button", "primary", t("templateAdd"));
+  btn.type = "submit";
+  foot.appendChild(btn);
+  form.appendChild(foot);
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const value = Number(target.value) * (mode.value === "time" ? 60 : 1);
+    try {
+      await api("/api/templates", {
+        method: "POST",
+        body: { name: name.value.trim(), mode: mode.value,
+                target: mode.value === "free" ? 0 : value, note: note.value.trim() },
+      });
+      paintTemplates_admin();
+    } catch (err) {
+      msg.className = "form-msg err";
+      msg.textContent = err.message;
+    }
+  };
+  host.appendChild(form);
+}
 
 // --- Security (admin) -----------------------------------------------------
 
@@ -479,6 +563,7 @@ async function paintSecurity() {
   policy("login_ip", t("secLoginIp"), t("secLoginIpHint"));
   policy("login_name", t("secLoginName"), t("secLoginNameHint"));
   policy("invite_ip", t("secInviteIp"), t("secInviteIpHint"));
+  policy("uplink_ip", t("secUplinkIp"), t("secUplinkIpHint"));
   form.appendChild(el("p", "hint", t("secZero")));
 
   const foot = el("div", "form-foot");
@@ -785,7 +870,7 @@ async function paintAdmin() {
     role.appendChild(el("span", null, t("roleAdmin")));
     li.appendChild(role);
 
-    const invite = el("a", null, t("btnInvite"));
+    const invite = el("a", null, t("btnReset"));
     invite.href = "#";
     invite.onclick = async (e) => {
       e.preventDefault();

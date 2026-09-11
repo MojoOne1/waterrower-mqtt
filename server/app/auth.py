@@ -120,6 +120,18 @@ def password_problem(password: str) -> str | None:
     return None
 
 
+# The lockout policies, here rather than in the API so the uplink endpoint
+# can reach them without importing it. Limits come from the database at
+# startup; these are placeholders.
+BY_IP = Throttle(limit=10, block_s=900, label="login_ip")
+BY_NAME = Throttle(limit=30, block_s=900, label="login_name")
+INVITE_IP = Throttle(limit=10, block_s=3600, label="invite_ip")
+UPLINK_IP = Throttle(limit=10, block_s=900, label="uplink_ip")
+
+POLICIES = {"login_ip": BY_IP, "login_name": BY_NAME,
+            "invite_ip": INVITE_IP, "uplink_ip": UPLINK_IP}
+
+
 def client_ip(request: Request) -> str:
     """Behind the tunnel uvicorn has already resolved X-Forwarded-For."""
     return request.client.host if request.client else "?"

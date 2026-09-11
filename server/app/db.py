@@ -115,6 +115,17 @@ CREATE TABLE IF NOT EXISTS races (
     finished_at REAL
 );
 
+-- Named races an admin sets up once; the athletes pick one instead of
+-- filling the form every week.
+CREATE TABLE IF NOT EXISTS race_templates (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    mode       TEXT NOT NULL,               -- distance | time | free
+    target     INTEGER NOT NULL DEFAULT 0,
+    note       TEXT NOT NULL DEFAULT '',
+    created_at REAL NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS race_entries (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     race_id          INTEGER NOT NULL REFERENCES races(id) ON DELETE CASCADE,
@@ -638,6 +649,39 @@ class Database:
         with self._lock, self._conn() as c:
             c.execute("DELETE FROM race_entries WHERE race_id = ?", (race_id,))
             c.execute("DELETE FROM races WHERE id = ?", (race_id,))
+
+    # --- Race templates ---------------------------------------------------
+
+    def templates(self) -> list[dict]:
+        with self._conn() as c:
+            rows = c.execute(
+                """SELECT * FROM race_templates
+                   ORDER BY mode, target, name"""
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def add_template(self, name: str, mode: str, target: int, note: str) -> int:
+        with self._lock, self._conn() as c:
+            cur = c.execute(
+                """INSERT INTO race_templates (name, mode, target, note, created_at)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (name, mode, target, note, time.time()),
+            )
+            return cur.lastrowid
+
+    def template(self, template_id: int) -> dict | None:
+        with self._conn() as c:
+            r = c.execute("SELECT * FROM race_templates WHERE id = ?",
+                          (template_id,)).fetchone()
+        return dict(r) if r else None
+
+    def delete_template(self, template_id: int) -> None:
+        with self._lock, self._conn() as c:
+            c.execute("DELETE FROM race_templates WHERE id = ?", (template_id,))
+
+    def count_templates(self) -> int:
+        with self._conn() as c:
+            return c.execute("SELECT COUNT(*) FROM race_templates").fetchone()[0]
 
     def finished_race_places(self) -> list[dict]:
         """Every placing of every finished race, for the head-to-head table."""

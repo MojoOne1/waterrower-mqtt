@@ -475,7 +475,23 @@ races, no sessions, no leaderboards, and no tracker token, because there is
 no ergometer behind the account. **Make yourself an athlete account too**,
 and keep `admin` for the administration.
 
-Races are therefore created and started by whoever is rowing them.
+Races are therefore created and started by whoever is rowing them. What an
+admin can set up is **Vorlagen** – named races with a mode and a target,
+which the athletes then pick with one tap instead of filling the form.
+A fresh arena comes with a handful (2000 m, 500 m Sprint, 5000 m, 20
+Minuten, frei rudern); delete them all and they stay deleted.
+
+**Lost the admin password?** Set `ARENA_ADMIN_RESET=1` alongside a new
+`ARENA_ADMIN_PASSWORD` in the compose file and restart: the account keeps
+its history, the password is replaced and every open session of it is
+ended. Take the variable out again afterwards, or every restart puts that
+password back. Anyone who can edit the compose file can already read the
+database, so this hands over nothing they did not have.
+
+For everybody else there is **Passwort zurücksetzen** next to each athlete:
+it clears the password, signs that account out everywhere, and hands you a
+one-time link for them to set a new one. Nobody, admin included, ever gets
+to type somebody else's password.
 
 Under **Konto / Account**:
 
@@ -511,6 +527,7 @@ and kept in the database:
 | Sign-in per address | one address guessing at any account | 10 failures, 15 min |
 | Sign-in per account | one account guessed at from anywhere | 30 failures, 15 min |
 | Invitations per address | wrong invitation codes from one address | 10 failures, 60 min |
+| Tracker sign-in per address | a tracker offering a device token that is not one | 10 failures, 15 min |
 
 Each is *that many failures, then locked out for that many minutes* – and
 the same span is how long a failure is remembered, so somebody who stops
@@ -544,8 +561,20 @@ same standard, but only warned about – locking yourself out of the first
 start would be worse.
 
 The `ARENA_LOGIN_IP_LIMIT`, `ARENA_LOGIN_NAME_LIMIT`, `ARENA_INVITE_IP_LIMIT`
-variables (and their `_MINUTES` counterparts) set the starting values only;
-once an admin saves the form, the database wins.
+and `ARENA_UPLINK_IP_LIMIT` variables (and their `_MINUTES` counterparts) set
+the starting values only; once an admin saves the form, the database wins.
+
+The tracker policy is not about guessing: a device token is 256 bits, and
+it is stored hashed, so a leaked database hands out nothing. It is there
+because without it anyone can open sockets at the uplink all day for free.
+What a *stolen* token can do is bounded - falsify one athlete's training
+data, nothing else - and revoking it under Tracker-Verbindung ends that.
+
+Changing a password ends every other session of that account. Display
+names are rendered as text and never as markup, so a name like
+`<img src=x onerror=...>` shows up as those characters, including on the
+invitation page, which is reachable before anyone signs in. Every database
+query uses bound parameters.
 
 Passwords are hashed with scrypt, device tokens and browser sessions are
 stored as SHA-256 – but everything else about an athlete, their invitation

@@ -14,6 +14,14 @@ ADMIN_USER = os.environ.get("ARENA_ADMIN_USER", "admin").strip().lower()
 ADMIN_NAME = os.environ.get("ARENA_ADMIN_NAME", "Admin").strip()
 ADMIN_PASSWORD = os.environ.get("ARENA_ADMIN_PASSWORD", "")
 
+# The way back in when the admin password is lost: set this to 1 alongside
+# a new ARENA_ADMIN_PASSWORD and restart. It resets the password of an
+# existing admin account instead of only creating a missing one. Anyone who
+# can edit the compose file can already read the database, so this gives
+# away nothing they did not have - but take it out again afterwards, or the
+# password goes back to whatever is in the file on every restart.
+ADMIN_RESET = os.environ.get("ARENA_ADMIN_RESET", "0") == "1"
+
 # Behind Cloudflare Tunnel the connection to the browser is HTTPS even though
 # the app itself is spoken to over plain HTTP, so the cookie must still be
 # Secure. Set to 0 only when testing over http://localhost.
@@ -50,6 +58,11 @@ SECURITY_DEFAULTS = {
     # wrong one is either a typo or somebody fishing.
     "invite_ip_limit": int(os.environ.get("ARENA_INVITE_IP_LIMIT", "10")),
     "invite_ip_minutes": int(os.environ.get("ARENA_INVITE_IP_MINUTES", "60")),
+    # Trackers offering a device token that is not one. Guessing a 256-bit
+    # token is hopeless, so this is not about the guessing - it is about
+    # somebody opening sockets at the server all day for free.
+    "uplink_ip_limit": int(os.environ.get("ARENA_UPLINK_IP_LIMIT", "10")),
+    "uplink_ip_minutes": int(os.environ.get("ARENA_UPLINK_IP_MINUTES", "15")),
 }
 
 # Race pacing.
