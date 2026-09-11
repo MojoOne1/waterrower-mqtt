@@ -93,6 +93,33 @@ class Throttle:
         return out
 
 
+MIN_PASSWORD = 12
+
+
+def password_problem(password: str) -> str | None:
+    """None when the password passes, otherwise why it does not.
+
+    Twelve characters and three of the four kinds. Worth knowing what this
+    costs: a long passphrase in one case - "correct horse battery staple" -
+    is refused at twenty-eight characters while "Passwort123!" is accepted
+    at twelve, though the passphrase is far harder to guess. Composition
+    rules always trade that away. Three kinds rather than four at least
+    leaves room for a passphrase that has a capital and a number in it.
+    """
+    if len(password) < MIN_PASSWORD:
+        return f"The password needs at least {MIN_PASSWORD} characters"
+    kinds = sum((
+        any(c.islower() for c in password),
+        any(c.isupper() for c in password),
+        any(c.isdigit() for c in password),
+        any(not c.isalnum() for c in password),
+    ))
+    if kinds < 3:
+        return ("The password needs three of: lower case, upper case, "
+                "digits, anything else")
+    return None
+
+
 def client_ip(request: Request) -> str:
     """Behind the tunnel uvicorn has already resolved X-Forwarded-For."""
     return request.client.host if request.client else "?"

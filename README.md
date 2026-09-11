@@ -468,12 +468,14 @@ comment in that file walks through connecting one to the other.
 
 ### Adding your friends
 
-The bootstrap `admin` account runs the arena; it does not row in it. An
-admin creates athletes, hands out invitations and hosts races, but cannot
-join one, and does not appear in the live tiles, the totals or the
-leaderboards – an account with no ergometer behind it would otherwise sit
-in every table at nought. **Make yourself an athlete account too**, and keep
-`admin` for the administration.
+The bootstrap `admin` account runs the arena; it does not row in it, and
+it does not see the rowing either: an admin gets the account page and
+nothing else – athletes, invitations, the security panel. No tiles, no
+races, no sessions, no leaderboards, and no tracker token, because there is
+no ergometer behind the account. **Make yourself an athlete account too**,
+and keep `admin` for the administration.
+
+Races are therefore created and started by whoever is rowing them.
 
 Under **Konto / Account**:
 
@@ -523,6 +525,23 @@ Below the settings is **Aktive Sperren** – who is locked out right now,
 which policy caught them and how long is left, with a link to lift one and
 a button to lift them all. That is the way back in after a fat-fingered
 password, and how you see that somebody is hammering the door.
+
+Under that, **Fehlversuche der letzten 24 Stunden**: every refused sign-in
+and wrong invitation code with its time, the account that was tried and the
+address it came from, plus which addresses and accounts were busiest. The
+lockout counters live in memory and a restart forgets them, so this log is
+the only part that survives one. It holds addresses, so it is pruned to a
+week.
+
+Passwords must be at least twelve characters and use three of the four
+kinds – lower case, upper case, digits, anything else. Worth knowing what
+that costs: `correct horse battery staple` is refused at twenty-eight
+characters while `Passwort123!` is accepted at twelve, though the
+passphrase is far harder to guess. Composition rules always trade that
+away; three kinds rather than four at least leaves room for a passphrase
+with a capital and a number in it. `ARENA_ADMIN_PASSWORD` is held to the
+same standard, but only warned about – locking yourself out of the first
+start would be worse.
 
 The `ARENA_LOGIN_IP_LIMIT`, `ARENA_LOGIN_NAME_LIMIT`, `ARENA_INVITE_IP_LIMIT`
 variables (and their `_MINUTES` counterparts) set the starting values only;

@@ -6,6 +6,7 @@ what they already record; this serves the comparison and runs the races.
 
 import asyncio
 import logging
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -45,6 +46,10 @@ def bootstrap() -> None:
             log.warning("No athletes and no ARENA_ADMIN_PASSWORD set - "
                         "nobody can sign in. Set it and restart.")
         return
+    weak = auth.password_problem(config.ADMIN_PASSWORD)
+    if weak:
+        log.warning("ARENA_ADMIN_PASSWORD is weak: %s. Creating the account "
+                    "anyway - change it in the arena.", weak.lower())
     athlete_id = db.create_athlete(config.ADMIN_USER, config.ADMIN_NAME, None,
                                    config.LANE_COLORS[0], is_admin=True)
     db.set_password(athlete_id, auth.hash_password(config.ADMIN_PASSWORD))
@@ -55,6 +60,9 @@ def bootstrap() -> None:
 async def lifespan(app: FastAPI):
     bootstrap()
     log.info("Security: %s", api.apply_security())
+    dropped = db.prune_failures(time.time() - api.FAILURE_KEEP_S)
+    if dropped:
+        log.info("Pruned %d old sign-in failure(s)", dropped)
     # A race cannot survive a restart: its lanes live in memory, and the
     # sample stream it was built on is gone.
     for r in db.list_races(limit=20):

@@ -32,7 +32,8 @@ const I18N = {
     joinTitle: "Willkommen in der Arena", btnJoin: "Loslegen",
     joinWho: (n) => `Die Einladung gilt für <strong>${n}</strong>. Vergib ein Passwort.`,
     joinInvalid: "Diese Einladung gilt nicht mehr. Frag nach einer neuen.",
-    joinShort: "Das Passwort braucht mindestens 8 Zeichen.",
+    pwShort: (n) => `Das Passwort braucht mindestens ${n} Zeichen.`,
+    pwKinds: "Drei von vier: Kleinbuchstaben, Großbuchstaben, Ziffern, Sonderzeichen.",
     themeAuto: "Auto", themeLight: "Hell", themeDark: "Dunkel",
     navArena: "Arena", navRace: "Rennen", navSessions: "Einheiten",
     navRecords: "Bestenlisten", navAccount: "Konto",
@@ -103,6 +104,12 @@ const I18N = {
     secFor: (d) => `noch ${d}`,
     secUnblock: "aufheben", secUnblockAll: "Alle Sperren aufheben",
     secRefresh: "Aktualisieren",
+    secFailures: (h) => `Fehlversuche der letzten ${h} Stunden`,
+    secNoFailures: "Keine Fehlversuche. Ruhig hier.",
+    secFailureCount: (n) => `${n} Versuche abgewiesen.`,
+    secTopIp: "Häufigste Adressen", secTopName: "Häufigste Konten",
+    secWhat: "Art", secAddress: "Adresse",
+    kind_login: "Anmeldung", kind_invite: "Einladung",
     pol_login_ip: "Anmeldung/IP", pol_login_name: "Anmeldung/Konto", pol_invite_ip: "Einladung/IP",
     btnSave: "Speichern", saved: "Gespeichert", saveFailed: "Speichern fehlgeschlagen",
     labelColor: "Farbe",
@@ -115,6 +122,7 @@ const I18N = {
     trackerSetup: (url) => `Im Tracker unter <em>Arena</em> eintragen: Server <code>${url}</code> und das Token.`,
     btnCopy: "Kopieren", copied: "Kopiert",
     newAthlete: "Athlet anlegen", btnInvite: "Neue Einladung", btnDelete: "Löschen",
+    btnCreateAthlete: "Athlet anlegen",
     roleAdmin: "Admin",
     adminNoRace: "Als Admin verwaltest du die Arena – mitrudern kannst du damit nicht.",
     confirmDeleteAthlete: (n) => `${n} mit allen Einheiten löschen?`,
@@ -133,7 +141,8 @@ const I18N = {
     joinTitle: "Welcome to the arena", btnJoin: "Get started",
     joinWho: (n) => `This invitation is for <strong>${n}</strong>. Pick a password.`,
     joinInvalid: "This invitation is no longer valid. Ask for a new one.",
-    joinShort: "The password needs at least 8 characters.",
+    pwShort: (n) => `The password needs at least ${n} characters.`,
+    pwKinds: "Three of four: lower case, upper case, digits, anything else.",
     themeAuto: "Auto", themeLight: "Light", themeDark: "Dark",
     navArena: "Arena", navRace: "Race", navSessions: "Sessions",
     navRecords: "Records", navAccount: "Account",
@@ -204,6 +213,12 @@ const I18N = {
     secFor: (d) => `${d} left`,
     secUnblock: "lift", secUnblockAll: "Lift all lockouts",
     secRefresh: "Refresh",
+    secFailures: (h) => `Failed attempts, last ${h} hours`,
+    secNoFailures: "No failed attempts. Quiet here.",
+    secFailureCount: (n) => `${n} attempts refused.`,
+    secTopIp: "Busiest addresses", secTopName: "Busiest accounts",
+    secWhat: "Kind", secAddress: "Address",
+    kind_login: "sign-in", kind_invite: "invitation",
     pol_login_ip: "sign-in/IP", pol_login_name: "sign-in/account", pol_invite_ip: "invite/IP",
     btnSave: "Save", saved: "Saved", saveFailed: "Saving failed",
     labelColor: "Colour",
@@ -216,6 +231,7 @@ const I18N = {
     trackerSetup: (url) => `In the tracker under <em>Arena</em>: server <code>${url}</code> and the token.`,
     btnCopy: "Copy", copied: "Copied",
     newAthlete: "Add athlete", btnInvite: "New invitation", btnDelete: "Delete",
+    btnCreateAthlete: "Add athlete",
     roleAdmin: "Admin",
     adminNoRace: "As an admin you run the arena – rowing in it is not part of the job.",
     confirmDeleteAthlete: (n) => `Delete ${n} and every session?`,
@@ -313,6 +329,14 @@ const fmtAgo = (ts) => {
   if (d < 172800) return `${Math.round(d / 3600)} h`;
   return fmtDay(ts);
 };
+const MIN_PASSWORD = 12;
+function passwordProblem(pw) {
+  if (pw.length < MIN_PASSWORD) return t('pwShort', MIN_PASSWORD);
+  const kinds = [/[a-zäöüß]/.test(pw), /[A-ZÄÖÜ]/.test(pw), /[0-9]/.test(pw),
+                 /[^\p{L}\p{N}]/u.test(pw)].filter(Boolean).length;
+  return kinds < 3 ? t('pwKinds') : null;
+}
+
 const athleteName = (id) => (STATE.athletes.find((a) => a.id === id) || {}).display_name || "?";
 const athleteColor = (id) => (STATE.athletes.find((a) => a.id === id) || {}).color || THEME.series[0];
 
@@ -363,7 +387,8 @@ async function startJoin(code) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const msg = $("join-msg");
-    if ($("join-pass").value.length < 8) { msg.className = "form-msg err"; msg.textContent = t("joinShort"); return; }
+    const weak = passwordProblem($("join-pass").value);
+    if (weak) { msg.className = "form-msg err"; msg.textContent = weak; return; }
     msg.className = "form-msg"; msg.textContent = "";
     try {
       STATE.me = await api("/api/join", {
@@ -454,8 +479,24 @@ function connect() {
 
 const VIEWS = {};       // filled in by views.js and race.js
 
+/* An admin administers: no tiles, no races, no sessions, no leaderboards.
+   With one tab left the tab strip is noise, so it goes too. */
+const ADMIN_VIEWS = ["account"];
+const allowedView = (name) =>
+  STATE.me && STATE.me.is_admin && !ADMIN_VIEWS.includes(name) ? "account" : name;
+
+function applyNav() {
+  const adminOnly = STATE.me && STATE.me.is_admin;
+  document.querySelectorAll("#nav button").forEach((b) => {
+    b.hidden = adminOnly && !ADMIN_VIEWS.includes(b.dataset.view);
+  });
+  const nav = $("nav");
+  if (nav) nav.hidden = adminOnly && ADMIN_VIEWS.length < 2;
+}
+
 function setView(name) {
-  if (!VIEWS[name]) name = "arena";
+  name = allowedView(name);
+  if (!VIEWS[name]) name = allowedView("arena");
   STATE.view = name;
   try { localStorage.setItem("view", name); } catch {}
   document.querySelectorAll("#nav button").forEach((b) => {
@@ -521,6 +562,7 @@ async function enterApp() {
   $("app").hidden = false;
   STATE.athletes = await api("/api/athletes").catch(() => []);
   STATE.version = await api("/api/version").catch(() => null);
+  applyNav();
   let saved = "arena";
   try { saved = localStorage.getItem("view") || "arena"; } catch {}
   connect();

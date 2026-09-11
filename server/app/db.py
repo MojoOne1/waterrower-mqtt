@@ -33,6 +33,19 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT NOT NULL
 );
 
+-- Every refused sign-in and every wrong invitation code, so an admin can
+-- see what has been knocking. Pruned to a week; this is a log of attempts,
+-- not an archive, and it holds addresses.
+CREATE TABLE IF NOT EXISTS login_failures (
+    id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts   REAL NOT NULL,
+    kind TEXT NOT NULL,          -- login | invite
+    name TEXT NOT NULL DEFAULT '',
+    ip   TEXT NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_login_failures_ts ON login_failures(ts DESC);
+
 CREATE TABLE IF NOT EXISTS device_tokens (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     athlete_id   INTEGER NOT NULL REFERENCES athletes(id) ON DELETE CASCADE,
@@ -159,6 +172,48 @@ class Database:
                 "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
                 [(k, json.dumps(v)) for k, v in values.items()],
             )
+
+    # --- Failed attempts --------------------------------------------------
+
+    def record_failure(self, kind: str, name: str, ip: str) -> None:
+        with self._lock, self._conn() as c:
+            c.execute(
+                "INSERT INTO login_failures (ts, kind, name, ip) VALUES (?, ?, ?, ?)",
+                (time.time(), kind, name[:64], ip[:64]),
+            )
+
+    def failures(self, since: float, limit: int = 200) -> list[dict]:
+        with self._conn() as c:
+            rows = c.execute(
+                """SELECT ts, kind, name, ip FROM login_failures
+                   WHERE ts >= ? ORDER BY ts DESC LIMIT ?""",
+                (since, limit),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def failure_counts(self, since: float) -> dict:
+        """How many, and from where - the summary above the list."""
+        with self._conn() as c:
+            total = c.execute(
+                "SELECT COUNT(*) FROM login_failures WHERE ts >= ?", (since,)
+            ).fetchone()[0]
+            by_ip = c.execute(
+                """SELECT ip, COUNT(*) AS n FROM login_failures WHERE ts >= ?
+                   GROUP BY ip ORDER BY n DESC LIMIT 10""", (since,)
+            ).fetchall()
+            by_name = c.execute(
+                """SELECT name, COUNT(*) AS n FROM login_failures
+                   WHERE ts >= ? AND name != '' GROUP BY name ORDER BY n DESC LIMIT 10""",
+                (since,)
+            ).fetchall()
+        return {"total": total,
+                "by_ip": [dict(r) for r in by_ip],
+                "by_name": [dict(r) for r in by_name]}
+
+    def prune_failures(self, older_than: float) -> int:
+        with self._lock, self._conn() as c:
+            cur = c.execute("DELETE FROM login_failures WHERE ts < ?", (older_than,))
+            return cur.rowcount
 
     # --- Athletes ---------------------------------------------------------
 

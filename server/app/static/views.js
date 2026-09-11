@@ -187,9 +187,9 @@ async function selectSession(id) {
 
 async function paintDetail(id) {
   const host = $("session-detail");
-  host.innerHTML = "";
   let data;
   try { data = await getSession(id); } catch { return; }
+  host.innerHTML = "";
   const s = data.session, samples = data.samples;
 
   const head = el("div", "detail-head");
@@ -277,14 +277,14 @@ function chartFigure(caption, draw) {
 async function paintCompare() {
   const host = $("compare");
   if (!host) return;
-  host.innerHTML = "";
-  if (STATE.compare.size < 2) return;
-  host.appendChild(el("h2", null, t("compareTitle")));
+  if (STATE.compare.size < 2) { host.innerHTML = ""; return; }
 
   const picked = [];
   for (const id of STATE.compare) {
     try { picked.push(await getSession(id)); } catch {}
   }
+  host.innerHTML = "";
+  host.appendChild(el("h2", null, t("compareTitle")));
 
   const legend = el("ul", "legend");
   picked.forEach((d, i) => {
@@ -426,10 +426,14 @@ VIEWS.account = async function account() {
   onData = () => {};
 
   paintProfile();
-  await paintTokens();
   if (STATE.me.is_admin) {
+    // No tracker behind an admin account, so no token to give it.
+    $("acc-tokens").innerHTML = "";
+    document.querySelectorAll('[data-i18n="accTokens"]').forEach((n) => { n.hidden = true; });
     await paintSecurity();
     await paintAdmin();
+  } else {
+    await paintTokens();
   }
 };
 
@@ -438,11 +442,13 @@ VIEWS.account = async function account() {
 async function paintSecurity() {
   const host = $("acc-security");
   if (!host) return;
-  host.innerHTML = "";
-  host.appendChild(el("h2", null, t("accSecurity")));
-
+  // Fetch first, clear second. Clearing and then awaiting leaves a window
+  // in which a second render can clear the same node and both runs then
+  // append into it - which is how this section came out twice.
   let data;
   try { data = await api("/api/security"); } catch { return; }
+  host.innerHTML = "";
+  host.appendChild(el("h2", null, t("accSecurity")));
 
   const form = el("form", "card");
   form.appendChild(el("p", "hint", t("secIntro")));
@@ -498,6 +504,54 @@ async function paintSecurity() {
   };
   host.appendChild(form);
   paintBlocks(data.blocked, host);
+  paintFailures(data, host);
+}
+
+/* What has been knocking. Counters live in memory and a restart forgets
+   them, so this is the only place the history survives. */
+function paintFailures(data, host) {
+  const box = el("div", "blocks");
+  box.appendChild(el("h3", null, t("secFailures", data.window_hours)));
+
+  const counts = data.counts || { total: 0, by_ip: [], by_name: [] };
+  if (!counts.total) {
+    box.appendChild(el("p", "empty", t("secNoFailures")));
+    host.appendChild(box);
+    return;
+  }
+  box.appendChild(el("p", "hint", t("secFailureCount", counts.total)));
+
+  const top = el("ul", "legend");
+  const worst = (rows, key, label) => {
+    if (!rows.length) return;
+    const li = el("li");
+    li.appendChild(el("span", null, `${label}: ` +
+      rows.slice(0, 3).map((r) => `${r[key]} (${r.n})`).join(", ")));
+    top.appendChild(li);
+  };
+  worst(counts.by_ip, "ip", t("secTopIp"));
+  worst(counts.by_name, "name", t("secTopName"));
+  box.appendChild(top);
+
+  const table = el("table", "table");
+  const head = el("tr");
+  [t("colTime"), t("secWhat"), t("labelName"), t("secAddress")]
+    .forEach((h) => head.appendChild(el("th", null, h)));
+  table.appendChild(el("thead")).appendChild(head);
+  const body = el("tbody");
+  for (const f of data.failures) {
+    const tr = el("tr");
+    tr.appendChild(el("td", "who", fmtDate(f.ts)));
+    tr.appendChild(el("td", "who", t(`kind_${f.kind}`)));
+    tr.appendChild(el("td", "who", f.name || "–"));
+    tr.appendChild(el("td", null, f.ip || "–"));
+    body.appendChild(tr);
+  }
+  table.appendChild(body);
+  const scroll = el("div", "failures");
+  scroll.appendChild(table);
+  box.appendChild(scroll);
+  host.appendChild(box);
 }
 
 /* The list of who is locked out right now, and the way to let them back
@@ -582,7 +636,8 @@ function paintProfile() {
   pw.appendChild(el("h3", null, t("changePassword")));
   const oldPw = field(pw, t("labelOldPassword"), "password");
   const newPw = field(pw, t("labelNewPassword"), "password");
-  newPw.minLength = 8;
+  newPw.minLength = MIN_PASSWORD;
+  pw.appendChild(el("p", "hint", t("pwKinds")));
   const pfoot = el("div", "form-foot");
   const pmsg = el("span", "form-msg");
   pfoot.appendChild(pmsg);
@@ -592,6 +647,8 @@ function paintProfile() {
   pw.appendChild(pfoot);
   pw.onsubmit = async (e) => {
     e.preventDefault();
+    const weak = passwordProblem(newPw.value);
+    if (weak) { pmsg.className = "form-msg err"; pmsg.textContent = weak; return; }
     try {
       await api("/api/password", {
         method: "POST",
@@ -624,13 +681,13 @@ function field(form, label, type, value) {
 }
 
 async function paintTokens(athleteId = STATE.me.id, host = $("acc-tokens")) {
+  const tokens = await api(`/api/athletes/${athleteId}/tokens`).catch(() => []);
   host.innerHTML = "";
   host.appendChild(el("p", "hint", t("tokenIntro")));
   const hint = el("p", "hint");
   hint.innerHTML = t("trackerSetup", location.origin);
   host.appendChild(hint);
 
-  const tokens = await api(`/api/athletes/${athleteId}/tokens`).catch(() => []);
   const list = el("ul", "tokens");
   if (!tokens.length) list.appendChild(el("li", "empty", t("tokenNone")));
   for (const tok of tokens) {
@@ -694,13 +751,12 @@ function secretBox(caption, secret) {
 
 async function paintAdmin() {
   const host = $("acc-admin");
+  const athletes = await api("/api/athletes").catch(() => []);
   host.innerHTML = "";
   host.appendChild(el("h2", null, t("accAdmin")));
 
-  const athletes = await api("/api/athletes").catch(() => []);
-  const full = await Promise.all(athletes.map(async (a) => a));
   const list = el("ul", "athlete-admin");
-  for (const a of full) {
+  for (const a of athletes) {
     const li = el("li");
     const sw = el("span", "sw");
     sw.style.background = a.color;
@@ -763,7 +819,7 @@ async function paintAdmin() {
   const foot = el("div", "form-foot");
   const msg = el("span", "form-msg");
   foot.appendChild(msg);
-  const btn = el("button", "primary", t("btnCreate"));
+  const btn = el("button", "primary", t("btnCreateAthlete"));
   btn.type = "submit";
   foot.appendChild(btn);
   form.appendChild(foot);

@@ -36,13 +36,15 @@ class Login(BaseModel):
 
 class JoinInvite(BaseModel):
     code: str
-    password: str = Field(min_length=8)
+    # Strength is checked in the endpoint so the reason comes back as a
+    # sentence rather than as a validation error about a string length.
+    password: str
     display_name: str = ""
 
 
 class NewPassword(BaseModel):
     old_password: str
-    password: str = Field(min_length=8)
+    password: str
 
 
 class NewAthlete(BaseModel):
@@ -147,6 +149,7 @@ def login(body: Login, request: Request, response: Response):
     if not ok:
         BY_IP.record(ip)
         BY_NAME.record(name)
+        db.record_failure("login", name, ip)
         # Same answer either way; which half was wrong is not the caller's
         # business.
         raise HTTPException(401, "Wrong name or password")
@@ -178,6 +181,7 @@ def _check_invite_code(code: str, request: Request) -> dict:
     athlete = db.athlete_by_invite(code)
     if not athlete:
         INVITE_IP.record(ip)
+        db.record_failure("invite", "", ip)
         raise HTTPException(404, "This invitation is not valid any more")
     INVITE_IP.clear(ip)
     return athlete
@@ -192,6 +196,9 @@ def check_invite(code: str, request: Request):
 @router.post("/api/join")
 def join_invite(body: JoinInvite, request: Request, response: Response):
     athlete = _check_invite_code(body.code, request)
+    problem = auth.password_problem(body.password)
+    if problem:
+        raise HTTPException(400, problem)
     db.set_password(athlete["id"], auth.hash_password(body.password))
     if body.display_name.strip():
         db.update_athlete(athlete["id"], body.display_name.strip(), athlete["color"])
@@ -206,6 +213,9 @@ def join_invite(body: JoinInvite, request: Request, response: Response):
 def change_password(body: NewPassword, athlete: dict = Depends(auth.current_athlete)):
     if not auth.verify_password(body.old_password, athlete["password_hash"]):
         raise HTTPException(403, "Current password is wrong")
+    problem = auth.password_problem(body.password)
+    if problem:
+        raise HTTPException(400, problem)
     db.set_password(athlete["id"], auth.hash_password(body.password))
     return {"ok": True}
 
@@ -566,9 +576,20 @@ def _blocked() -> list[dict]:
     return [b for throttle in POLICIES.values() for b in throttle.blocked()]
 
 
+FAILURE_WINDOW_S = 24 * 3600
+FAILURE_KEEP_S = 7 * 86400
+
+
 @router.get("/api/security")
 def get_security(_: dict = Depends(auth.current_admin)):
-    return {"settings": security_settings(), "blocked": _blocked()}
+    since = time.time() - FAILURE_WINDOW_S
+    return {
+        "settings": security_settings(),
+        "blocked": _blocked(),
+        "window_hours": FAILURE_WINDOW_S // 3600,
+        "failures": db.failures(since),
+        "counts": db.failure_counts(since),
+    }
 
 
 @router.post("/api/security")
