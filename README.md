@@ -38,7 +38,8 @@ CLI); the ESP then runs on its own.
 
 ### Tracker – `docker/`
 
-A self-contained web app that turns the MQTT stream into a training log.
+The **WaterRower Workout Tracker**: a self-contained web app that turns
+the MQTT stream into a training log.
 It subscribes to the broker, stores every session with one sample per
 second in SQLite, and serves a web UI with the live display, per-session
 charts, session comparison, CSV export and an "End session" button. Runs

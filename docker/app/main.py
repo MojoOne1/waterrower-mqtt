@@ -1,4 +1,4 @@
-"""WaterRower Tracker - web UI and API."""
+"""WaterRower Workout Tracker - web UI and API."""
 
 import asyncio
 import csv
@@ -61,7 +61,7 @@ async def lifespan(_: FastAPI):
     ingest.stop()
 
 
-app = FastAPI(title="WaterRower Tracker", version=APP_VERSION, lifespan=lifespan)
+app = FastAPI(title="WaterRower Workout Tracker", version=APP_VERSION, lifespan=lifespan)
 
 
 @app.get("/api/version")
