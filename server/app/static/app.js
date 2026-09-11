@@ -347,9 +347,11 @@ $("login-form").onsubmit = async (e) => {
       body: { name: $("login-name").value.trim(), password: $("login-pass").value },
     });
     await enterApp();
-  } catch {
+  } catch (err) {
     msg.className = "form-msg err";
-    msg.textContent = t("loginFailed");
+    // Being throttled is worth saying out loud - otherwise it reads as a
+    // wrong password and they keep typing.
+    msg.textContent = err.status === 429 ? err.message : t("loginFailed");
   }
 };
 

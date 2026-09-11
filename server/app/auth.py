@@ -8,6 +8,7 @@ whole thing costs one import and no dependency.
 import hashlib
 import hmac
 import secrets
+import time
 
 from fastapi import Depends, HTTPException, Request
 
@@ -15,6 +16,51 @@ import config
 
 COOKIE = "arena_session"
 _SCRYPT = dict(n=2 ** 14, r=8, p=1, dklen=32)
+
+
+class Throttle:
+    """A sliding window of failures, to slow password guessing down.
+
+    scrypt already costs about a tenth of a second per attempt, which caps
+    guessing at a few per second - but a few per second, left running for a
+    week, is still a lot of guesses. In memory is enough here: one process,
+    and a restart that forgets the counters is not the attack to worry about.
+    """
+
+    def __init__(self, limit: int, window_s: float):
+        self.limit = limit
+        self.window = window_s
+        self._hits: dict[str, list[float]] = {}
+
+    def retry_after(self, key: str) -> float:
+        """Seconds the caller has to wait; 0 when they may try."""
+        now = time.time()
+        hits = [t for t in self._hits.get(key, ()) if now - t < self.window]
+        if hits:
+            self._hits[key] = hits
+        else:
+            self._hits.pop(key, None)
+        if len(hits) < self.limit:
+            return 0.0
+        return round(self.window - (now - hits[0]), 1)
+
+    def record(self, key: str) -> None:
+        now = time.time()
+        self._hits.setdefault(key, []).append(now)
+        if len(self._hits) > 1000:
+            # Somebody is rotating keys at us; drop whatever has aged out
+            # rather than growing for ever.
+            for k in [k for k, v in self._hits.items()
+                      if not v or now - v[-1] > self.window]:
+                self._hits.pop(k, None)
+
+    def clear(self, key: str) -> None:
+        self._hits.pop(key, None)
+
+
+def client_ip(request: Request) -> str:
+    """Behind the tunnel uvicorn has already resolved X-Forwarded-For."""
+    return request.client.host if request.client else "?"
 
 
 def hash_password(password: str) -> str:

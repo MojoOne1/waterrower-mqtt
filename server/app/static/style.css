@@ -134,7 +134,10 @@ table.table th, table.table td {
   text-align: right; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--line);
   font-family: var(--mono); font-variant-numeric: tabular-nums;
 }
-table.table th:first-child, table.table td:first-child { text-align: left; font-family: var(--font); }
+/* Names read left, numbers read right - and a name is not always the first
+   column (in a race result the placing is). */
+table.table th:first-child, table.table td:first-child,
+table.table th.who, table.table td.who { text-align: left; font-family: var(--font); }
 table.table thead th { font-family: var(--font); font-weight: 500; color: var(--muted); font-size: 0.78rem; }
 table.table tr.win td { font-weight: 700; }
 /* The swatch carries its own spacing and alignment, so a `.who` cell stays

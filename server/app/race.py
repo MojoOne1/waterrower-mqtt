@@ -448,9 +448,13 @@ class RaceEngine:
         self._publish()
         self.race = None
 
-    def clear_if_done(self) -> None:
+    def clear_if_done(self) -> bool:
+        """Put the lobby back. Says whether it actually did anything, so a
+        running race cannot be blanked off everyone's screen."""
         if self.race and self.race.state in ("finished", "aborted"):
             self.race = None
+            return True
+        return False
 
     # --- Fan-out ----------------------------------------------------------
 

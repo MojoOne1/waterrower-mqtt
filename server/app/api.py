@@ -85,6 +85,18 @@ def version():
     return {"version": config.APP_VERSION, "commit": config.GIT_COMMIT}
 
 
+@router.get("/api/health")
+def health():
+    """For the container healthcheck: no auth, and it touches the database
+    so a broken volume shows up as unhealthy rather than as a blank page."""
+    try:
+        athletes = db.count_athletes()
+    except Exception as e:
+        raise HTTPException(503, f"database unavailable: {e}")
+    return {"ok": True, "athletes": athletes, "uplinks": len(hub.uplinks),
+            "version": config.APP_VERSION}
+
+
 @router.get("/api/me")
 def me(request: Request):
     athlete = auth.athlete_from_cookie(request)
@@ -93,14 +105,32 @@ def me(request: Request):
     return auth.public_athlete(athlete)
 
 
+# Two windows on purpose. The per-address one is the tight limit; the
+# per-name one still applies when the guesses come from everywhere at once,
+# and is loose enough that it is no way to lock a friend out on a whim.
+BY_IP = auth.Throttle(limit=10, window_s=900)
+BY_NAME = auth.Throttle(limit=30, window_s=900)
+
+
 @router.post("/api/login")
-def login(body: Login, response: Response):
-    athlete = db.athlete_by_name(body.name.strip().lower())
+def login(body: Login, request: Request, response: Response):
+    name = body.name.strip().lower()
+    ip = auth.client_ip(request)
+    wait = max(BY_IP.retry_after(ip), BY_NAME.retry_after(name))
+    if wait:
+        raise HTTPException(429, f"Too many attempts - try again in {int(wait / 60) + 1} min",
+                            headers={"Retry-After": str(int(wait))})
+
+    athlete = db.athlete_by_name(name)
     ok = auth.verify_password(body.password, athlete["password_hash"] if athlete else None)
     if not ok:
+        BY_IP.record(ip)
+        BY_NAME.record(name)
         # Same answer either way; which half was wrong is not the caller's
         # business.
         raise HTTPException(401, "Wrong name or password")
+    BY_IP.clear(ip)
+    BY_NAME.clear(name)
     token = auth.new_token()
     db.add_web_session(auth.token_hash(token), athlete["id"], config.SESSION_DAYS * 86400)
     auth.set_cookie(response, token)
@@ -117,9 +147,13 @@ def logout(request: Request, response: Response):
 
 
 @router.get("/api/invite/{code}")
-def check_invite(code: str):
+def check_invite(code: str, request: Request):
+    ip = auth.client_ip(request)
+    if BY_IP.retry_after(ip):
+        raise HTTPException(429, "Too many attempts")
     athlete = db.athlete_by_invite(code)
     if not athlete:
+        BY_IP.record(ip)          # codes are 96 bits, but do not invite the try
         raise HTTPException(404, "This invitation is not valid any more")
     return {"name": athlete["name"], "display_name": athlete["display_name"]}
 
@@ -381,9 +415,10 @@ async def abort_race(athlete: dict = Depends(auth.current_athlete)):
 @router.post("/api/race/clear")
 def clear_race(_: dict = Depends(auth.current_athlete)):
     """Drop a finished race off the live view so the lobby is free again."""
-    races.clear_if_done()
-    hub.broadcast({"type": "race", "race": None})
-    return {"ok": True}
+    cleared = races.clear_if_done()
+    if cleared:
+        hub.broadcast({"type": "race", "race": None})
+    return {"ok": True, "cleared": cleared}
 
 
 @router.get("/api/races")

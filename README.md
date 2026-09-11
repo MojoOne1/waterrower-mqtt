@@ -481,6 +481,15 @@ Under **Konto / Account**:
 Lane colours are handed out automatically and are used consistently for
 that athlete – in the live tiles, the charts, the lanes and the tables.
 
+Since the arena is reachable from the internet, sign-in is rate limited:
+ten failed attempts from one address within fifteen minutes, or thirty
+against one name, and the next one is answered with `429` and a
+`Retry-After` until the window passes. Passwords are hashed with scrypt,
+device tokens and browser sessions are stored as SHA-256 – but everything
+else about an athlete, their invitation code included, sits in
+`./data/arena.db`. That file is the one thing worth backing up, and the
+one thing worth not handing around.
+
 ### Racing
 
 Three modes:
@@ -536,6 +545,7 @@ Everything needs a session cookie; the uplink uses its own token.
 
 | Path | Content |
 |---|---|
+| `GET /api/health` | Liveness for the container healthcheck – no sign-in needed |
 | `POST /api/login`, `/api/logout`, `/api/join` | Sign in, out, redeem an invitation |
 | `GET /api/athletes`, `POST /api/athletes` | Athletes; creating one returns an invitation code (admin) |
 | `POST /api/athletes/{id}/tokens` | Mint a device token – returned once, stored hashed |
