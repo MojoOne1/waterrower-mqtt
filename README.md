@@ -144,6 +144,7 @@ Pitfalls that cost us time:
 | `waterrower/session_id` | Current session ID |
 | `waterrower/live` | All values as JSON, 1×/s during a workout |
 | `waterrower/session/last` | Summary of the last session (retained) |
+| `waterrower/firmware_version` | Firmware version (retained) |
 | `waterrower/cmd/end_session` | **To** the ESP: end the running session (any payload) |
 
 ## Tracker (Docker)
@@ -206,6 +207,7 @@ For your own analysis:
 | Path | Content |
 |---|---|
 | `GET` / `POST /api/settings` | Read / set broker settings (reconnects) |
+| `GET /api/version` | Tracker version and git commit |
 | `GET /api/live` | Current state |
 | `GET /api/stream` | Live updates as Server-Sent Events |
 | `POST /api/session/end` | End the running session (publishes `cmd/end_session`) |
@@ -216,6 +218,23 @@ For your own analysis:
 
 The UI is available in English and German – the DE/EN toggle in the header
 switches it; the default follows the browser language.
+
+## Versioning
+
+One version number for the whole project, kept in two places that must
+match: the `VERSION` file at the repo root and `substitutions.version` in
+`esphome-waterrower.yaml`. Releases are tagged `v<version>` in git.
+
+- **Tracker**: the workflow stamps the image with the version and the
+  short commit hash (`APP_VERSION`, `GIT_COMMIT`); the image is tagged
+  `latest`, `<version>` and `sha-<commit>`. Both show in the web UI's
+  footer (the commit links to GitHub) and at `/api/version`.
+- **Firmware**: the version appears in Home Assistant's device info, as
+  the "Firmware Version" entity in the ESPHome web UI, and is published
+  on `waterrower/firmware_version` so the tracker's footer can show it.
+  The "ESPHome Version" entity adds the compile timestamp. The firmware is
+  compiled in the ESPHome dashboard, where git isn't available – the
+  version tag is the link to the commit.
 
 ## Troubleshooting
 

@@ -19,6 +19,8 @@ from mqtt_ingest import LiveState, MqttIngest
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
+APP_VERSION = os.environ.get("APP_VERSION", "dev")
+GIT_COMMIT = os.environ.get("GIT_COMMIT", "unknown")
 DB_PATH = os.environ.get("DB_PATH", "/data/waterrower.db")
 SETTINGS_PATH = Path(DB_PATH).parent / "settings.json"
 STATIC = Path(__file__).parent / "static"
@@ -58,7 +60,12 @@ async def lifespan(_: FastAPI):
     ingest.stop()
 
 
-app = FastAPI(title="WaterRower Tracker", lifespan=lifespan)
+app = FastAPI(title="WaterRower Tracker", version=APP_VERSION, lifespan=lifespan)
+
+
+@app.get("/api/version")
+def version():
+    return {"version": APP_VERSION, "commit": GIT_COMMIT}
 
 
 # --- Settings --------------------------------------------------------------

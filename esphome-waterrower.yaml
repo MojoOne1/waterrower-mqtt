@@ -1,7 +1,15 @@
+# Keep in sync with the VERSION file at the repo root; releases are
+# tagged v<version> in git, which is how a firmware maps to a commit.
+substitutions:
+  version: "1.0.0"
+
 esphome:
   name: esphome-waterrower
   friendly_name: ESPHome Waterrower
   min_version: 2026.4.0
+  project:
+    name: "mojoone1.waterrower-mqtt"
+    version: "${version}"
   name_add_mac_suffix: false
   on_boot:
     priority: -100
@@ -535,6 +543,20 @@ binary_sensor:
     lambda: return id(session_active);
 
 text_sensor:
+  # Project version (also published for the tracker's footer) and the
+  # ESPHome build incl. compile timestamp - both visible in the web UI.
+  - platform: template
+    name: "Firmware Version"
+    id: wr_firmware_version
+    state_topic: waterrower/firmware_version
+    entity_category: diagnostic
+    lambda: return {std::string("${version}")};
+    update_interval: 60s
+
+  - platform: version
+    name: "ESPHome Version"
+    entity_category: diagnostic
+
   - platform: template
     name: "WaterRower Duration (hh:mm:ss)"
     id: wr_elapsed_formatted

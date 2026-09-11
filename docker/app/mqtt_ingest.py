@@ -146,6 +146,8 @@ class MqttIngest:
                 self.state.update(**{topic: _num(payload)})
             elif topic == "split_500m":
                 self.state.update(split_500m=payload)
+            elif topic == "firmware_version":
+                self.state.update(firmware_version=payload)
         except (ValueError, json.JSONDecodeError) as e:
             log.debug("Ignoring %s: %s (%s)", topic, payload[:60], e)
 

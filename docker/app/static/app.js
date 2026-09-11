@@ -141,6 +141,7 @@ async function getSession(id) {
 // --- Live display --------------------------------------------------------
 
 function renderLive(snap) {
+  lastSnap = snap;
   const v = snap.values || {};
   const active = snap.session_active;
 
@@ -156,6 +157,7 @@ function renderLive(snap) {
   $("conn-text").textContent = !snap.connected ? t("connOff") : active ? t("connLive") : t("connOn");
 
   $("end").hidden = !(active && snap.session_id);
+  renderFooter();
 
   const line = $("session-line");
   if (active && snap.session_id) {
@@ -178,7 +180,6 @@ function connectStream() {
   let wasActive = false;
   es.onmessage = (e) => {
     const snap = JSON.parse(e.data);
-    lastSnap = snap;
     renderLive(snap);
     if (wasActive && !snap.session_active) { cache.clear(); loadSessions(); }
     wasActive = snap.session_active;
@@ -499,8 +500,31 @@ settingsForm.onsubmit = async (e) => {
   else { settingsMsg.textContent = s.error || t("noConnection"); settingsMsg.className = "form-msg err"; }
 };
 
+// --- Version footer --------------------------------------------------------
+
+const REPO = "https://github.com/MojoOne1/waterrower-mqtt";
+let appVersion = null;
+
+function renderFooter() {
+  if (!appVersion) return;
+  const parts = [];
+  const commit = /^[0-9a-f]{7,40}$/.test(appVersion.commit)
+    ? `<a href="${REPO}/commit/${appVersion.commit}" target="_blank" rel="noopener">${appVersion.commit.slice(0, 7)}</a>`
+    : appVersion.commit;
+  parts.push(`Tracker v${appVersion.version} · ${commit}`);
+  const fw = lastSnap?.values?.firmware_version;
+  if (fw) parts.push(`Firmware v${fw}`);
+  $("foot").innerHTML = parts.join(" &nbsp;·&nbsp; ");
+}
+
+async function loadVersion() {
+  appVersion = await (await fetch("/api/version")).json();
+  renderFooter();
+}
+
 // --- Start ---------------------------------------------------------------
 applyLang();
 connectStream();
 loadSessions();
 loadSettings();
+loadVersion();
