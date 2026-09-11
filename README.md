@@ -123,9 +123,12 @@ container, SQLite for storage, a web UI with no external dependencies. The
 only requirement is a reachable MQTT broker.
 
 ```bash
-cd docker
 docker compose up -d
 ```
+
+(`docker-compose.yml` at the repo root builds `./docker` and mounts
+`./docker/data`. A second, self-contained copy lives in `docker/` itself,
+for running the tracker from just that subfolder.)
 
 Then reachable at `http://<host>:8080/`. On first visit, a form for the
 broker connection (address, port, login, topic prefix) opens; settings are
