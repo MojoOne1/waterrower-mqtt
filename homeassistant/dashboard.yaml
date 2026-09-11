@@ -1,0 +1,195 @@
+# Home Assistant dashboard for waterrower-mqtt
+#
+# Shows the entities provided by the ESPHome bridge (see README).
+#
+# Entity IDs assume the device is named "WaterRower" in Home Assistant
+# (the firmware's friendly_name), which gives IDs like
+# sensor.waterrower_distance. If your device was renamed or Home Assistant
+# prefixed the IDs with an area, search & replace "waterrower_" with your
+# own prefix before importing.
+#
+# Import: Settings -> Dashboards -> Add dashboard -> "New dashboard from
+# scratch", open it, three-dot menu -> Edit -> three-dot menu -> Raw
+# configuration editor, paste this file.
+
+views:
+- title: Rowing
+  path: rowing
+  type: sections
+  icon: mdi:rowing
+  max_columns: 4
+  header:
+    card:
+      type: markdown
+      content: '# Rowing'
+    badges_position: bottom
+  badges:
+  - type: entity
+    entity: binary_sensor.waterrower_session_active
+    name: Session
+    show_state: true
+    show_icon: true
+    show_name: true
+  - type: entity
+    entity: sensor.waterrower_total_distance
+    name: Total distance
+    show_state: true
+    show_icon: true
+    show_name: true
+  sections:
+  - type: grid
+    column_span: 4
+    cards:
+    - type: heading
+      heading_style: title
+      heading: Live
+      icon: mdi:speedometer
+    - type: tile
+      entity: sensor.waterrower_speed
+      name: Speed
+      icon: mdi:speedometer
+      grid_options:
+        columns: 3
+    - type: tile
+      entity: sensor.waterrower_stroke_rate
+      name: Stroke rate
+      icon: mdi:sync
+      grid_options:
+        columns: 3
+    - type: tile
+      entity: sensor.waterrower_watts
+      name: Power
+      icon: mdi:lightning-bolt
+      grid_options:
+        columns: 3
+    - type: tile
+      entity: sensor.waterrower_500m_split
+      name: 500m split
+      icon: mdi:timer-outline
+      grid_options:
+        columns: 3
+    - type: tile
+      entity: sensor.waterrower_distance
+      name: Distance
+      icon: mdi:map-marker-distance
+      grid_options:
+        columns: 3
+    - type: tile
+      entity: sensor.waterrower_duration_hh_mm_ss
+      name: Duration
+      icon: mdi:clock-outline
+      grid_options:
+        columns: 3
+    - type: tile
+      entity: sensor.waterrower_strokes
+      name: Strokes
+      icon: mdi:counter
+      grid_options:
+        columns: 3
+    - type: tile
+      entity: sensor.waterrower_pull_time
+      name: Pull time
+      icon: mdi:arm-flex
+      grid_options:
+        columns: 3
+    - type: tile
+      entity: sensor.waterrower_ratio
+      name: Ratio (pull/recovery)
+      icon: mdi:scale-balance
+      grid_options:
+        columns: 3
+  - type: grid
+    column_span: 4
+    cards:
+    - type: heading
+      heading_style: title
+      heading: Session summary
+      icon: mdi:clipboard-text-clock
+    - type: tile
+      entity: sensor.waterrower_session_avg_speed
+      name: Avg speed
+      icon: mdi:speedometer-medium
+      grid_options:
+        columns: 3
+    - type: tile
+      entity: sensor.waterrower_session_avg_stroke_rate
+      name: Avg stroke rate
+      icon: mdi:sync-circle
+      grid_options:
+        columns: 3
+    - type: tile
+      entity: sensor.waterrower_session_id
+      name: Session ID
+      icon: mdi:identifier
+      grid_options:
+        columns: 3
+    - type: tile
+      entity: sensor.waterrower_last_session
+      name: Last session
+      icon: mdi:history
+      grid_options:
+        columns: 3
+  - type: grid
+    column_span: 4
+    cards:
+    - type: heading
+      heading_style: title
+      heading: History (24 h)
+      icon: mdi:chart-line
+    - type: history-graph
+      title: Power & stroke rate
+      hours_to_show: 24
+      grid_options:
+        columns: full
+        rows: 6
+      entities:
+      - entity: sensor.waterrower_watts
+        name: Watts
+      - entity: sensor.waterrower_stroke_rate
+        name: Stroke rate
+      - entity: sensor.waterrower_speed
+        name: Speed
+  - type: grid
+    column_span: 4
+    cards:
+    - type: heading
+      heading_style: title
+      heading: Device & control
+      icon: mdi:chip
+    - type: tile
+      entity: number.waterrower_session_timeout
+      name: Session timeout
+      icon: mdi:timer-cog-outline
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: button.waterrower_reset
+      name: End session & reset
+      icon: mdi:restart
+      grid_options:
+        columns: 4
+      tap_action:
+        action: perform-action
+        perform_action: button.press
+        target:
+          entity_id: button.waterrower_reset
+        confirmation:
+          text: End the running session and reset the monitor?
+    - type: tile
+      entity: sensor.waterrower_firmware_version
+      name: Firmware
+      icon: mdi:chip
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: sensor.waterrower_esphome_version
+      name: ESPHome version
+      icon: mdi:puzzle
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.waterrower_s4_raw_data
+      name: S4 raw data
+      icon: mdi:code-tags
+      grid_options:
+        columns: 6

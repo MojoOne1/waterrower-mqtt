@@ -95,6 +95,16 @@ the YAML.
   stays quiet; a lost link is logged once, not every retry.
 - Serves a local web UI at `http://esphome-waterrower.local/`.
 
+### Home Assistant dashboard
+
+`homeassistant/dashboard.yaml` is a ready-made sections dashboard: live
+tiles, session summary, a 24 h history graph, and the device controls
+(session timeout, end-session/reset button, versions). Import it via
+Settings → Dashboards → Add dashboard, then paste it into the raw
+configuration editor. The entity IDs assume the device is called
+"WaterRower" (`sensor.waterrower_…`); if Home Assistant gave your device
+a different prefix, search & replace `waterrower_` first.
+
 ## Protocol
 
 Based on WaterRower's document **"Water Rower S4 & S5 USB Protocol, Issue
@@ -268,7 +278,7 @@ match: the `VERSION` file at the repo root and `substitutions.version` in
 - HTML recreation of the S4 display for Home Assistant
 - Telegraf connection to InfluxDB (`telegraf-waterrower.conf` is a draft,
   optional alongside the Docker tracker)
-- Workout overview in HA (e.g. embed the tracker via iframe)
+- Workout history in HA (e.g. embed the tracker via iframe)
 - Heart-rate sensing once a chest strap is acquired
 
 ## License
