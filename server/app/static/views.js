@@ -639,8 +639,9 @@ async function paintAdmin() {
   const form = el("form", "card");
   form.appendChild(el("h3", null, t("newAthlete")));
   const handle = field(form, t("labelName"), "text");
-  handle.placeholder = "jan";
+  handle.placeholder = "lutz-heinrich";
   const display = field(form, t("labelDisplayName"), "text");
+  display.placeholder = "Lutz-Heinrich";
   const foot = el("div", "form-foot");
   const msg = el("span", "form-msg");
   foot.appendChild(msg);

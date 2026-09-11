@@ -133,6 +133,9 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 table.table th, table.table td {
   text-align: right; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--line);
   font-family: var(--mono); font-variant-numeric: tabular-nums;
+  /* A distance broken across two lines is unreadable; on a narrow screen
+     the table scrolls in its own box instead (see .scroll-x). */
+  white-space: nowrap;
 }
 /* Names read left, numbers read right - and a name is not always the first
    column (in a race result the placing is). */
@@ -166,6 +169,8 @@ table.table tr.win td { font-weight: 700; }
 .conn .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
 .conn.on .dot { background: var(--good); box-shadow: 0 0 0 3px rgba(31, 122, 70, 0.15); }
 .conn.off .dot { background: var(--bad); }
+.whoami { font-size: 0.8rem; color: var(--ink-2); }
+.logout { font-size: 0.78rem; padding: 0.25rem 0.6rem; color: var(--muted); }
 
 .view { max-width: 1100px; margin: 1rem auto 3rem; padding: 0 1.5rem; }
 .stack { display: flex; flex-direction: column; gap: 0.9rem; }
@@ -205,7 +210,7 @@ form.card label { display: flex; flex-direction: column; gap: 0.25rem; font-size
 .mini .val { display: block; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
 .cards .empty { grid-column: 1 / -1; }
 button.end-session { margin-top: 0.7rem; width: 100%; }
-.totals { overflow-x: auto; }
+.totals, #rec-totals, #compare { overflow-x: auto; }
 
 /* --- Race ------------------------------------------------------------- */
 .race-card { display: flex; flex-direction: column; gap: 0.8rem; }

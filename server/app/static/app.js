@@ -449,8 +449,17 @@ function render() {
   });
 }
 
+/* Who is signed in, in the header. With an admin account and a rowing
+   account in the same browser this is the difference between them. */
+function paintWhoami() {
+  const n = $("whoami");
+  if (!n || !STATE.me) return;
+  n.textContent = STATE.me.display_name + (STATE.me.is_admin ? " · Admin" : "");
+}
+
 function renderNow() {
   applyLang();
+  paintWhoami();
   const host = $("view");
   if (!host || !STATE.me) return;
   host.innerHTML = "";
@@ -494,6 +503,7 @@ async function boot() {
   document.querySelectorAll(".lang button").forEach((b) => { b.onclick = () => setLang(b.dataset.lang); });
   document.querySelectorAll("#theme button").forEach((b) => { b.onclick = () => setTheme(b.dataset.theme); });
   document.querySelectorAll("#nav button").forEach((b) => { b.onclick = () => setView(b.dataset.view); });
+  $("logout").onclick = logout;
 
   try {
     STATE.me = await api("/api/me");
