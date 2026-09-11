@@ -81,6 +81,7 @@
       <div class="actions">
         <label class="cmp"><input type="checkbox" id="cmp-toggle"> <span data-i18n="compare"></span></label>
         <a id="csv" href="#">CSV</a>
+        <a id="xlsx" href="#">Excel</a>
         <button id="del" type="button" data-i18n="delete"></button>
       </div>
     </div>
@@ -112,7 +113,10 @@
   <section class="trend" id="trend" hidden>
     <div class="detail-head">
       <h2 data-i18n="allSessions"></h2>
-      <span class="hint" id="trend-sum"></span>
+      <div class="actions">
+        <span class="hint" id="trend-sum"></span>
+        <a href="/api/export.xlsx" data-i18n="exportAll"></a>
+      </div>
     </div>
     <figure>
       <figcaption><span data-i18n="chartTrend"></span><span class="readout" id="ro-trend"></span></figcaption>

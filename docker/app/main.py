@@ -10,10 +10,11 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import xlsx_export
 from db import Database
 from mqtt_ingest import LiveState, MqttIngest
 
@@ -186,6 +187,33 @@ def export_csv(session_id: str):
         iter([buf.getvalue()]), media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{session_id}.csv"'},
     )
+
+
+def _xlsx(content: bytes, filename: str) -> Response:
+    return Response(
+        content=content, media_type=xlsx_export.MEDIA_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/api/sessions/{session_id}/export.xlsx")
+def export_session_xlsx(session_id: str):
+    """One workbook: summary, all samples, and a chart."""
+    data = db.get_session(session_id)
+    if not data:
+        raise HTTPException(404, "Session not found")
+    content = xlsx_export.build_session(data["session"], data["samples"])
+    return _xlsx(content, f"waterrower-{session_id}.xlsx")
+
+
+@app.get("/api/export.xlsx")
+def export_all_xlsx():
+    """One row per session, with totals and a distance chart."""
+    sessions = db.list_sessions()
+    if not sessions:
+        raise HTTPException(404, "No sessions recorded yet")
+    content = xlsx_export.build_overview(sessions)
+    return _xlsx(content, "waterrower-sessions.xlsx")
 
 
 # --- UI --------------------------------------------------------------------

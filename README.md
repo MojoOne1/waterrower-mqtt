@@ -316,7 +316,10 @@ docker compose -f docker-compose.build.yml up -d --build
   four sessions overlaid
 - "End session" button that closes the running session on the ESP and
   resets the monitor (like its power button)
-- CSV export and per-session delete
+- CSV and Excel export per session (the workbook has a summary sheet, all
+  samples and a speed/stroke-rate chart), plus one workbook across all
+  sessions with totals and a distance chart
+- Per-session delete
 
 If the tracker is started after the ESP, the samples from before are
 missing – but the session ID carries the start time, so ordering stays
@@ -336,6 +339,8 @@ For your own analysis:
 | `GET /api/sessions` | List of all sessions |
 | `GET /api/sessions/{id}` | Session with all samples |
 | `GET /api/sessions/{id}/export.csv` | Samples as CSV |
+| `GET /api/sessions/{id}/export.xlsx` | Session as an Excel workbook |
+| `GET /api/export.xlsx` | All sessions as one Excel workbook |
 | `DELETE /api/sessions/{id}` | Delete a session |
 
 The UI is available in English and German – the DE/EN toggle in the header

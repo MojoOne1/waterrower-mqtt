@@ -36,7 +36,7 @@ const I18N = {
     chartSpeed: "Geschwindigkeit in m/s", chartSpm: "Schlagfrequenz",
     compareTitle: "Vergleich", clearSelection: "Auswahl leeren",
     chartCmp: "Geschwindigkeit ab Start der jeweiligen Einheit",
-    allSessions: "Alle Einheiten", chartTrend: "Distanz je Einheit",
+    allSessions: "Alle Einheiten", chartTrend: "Distanz je Einheit", exportAll: "Alle als Excel",
     trendSum: (n, m, dur) => `${n} Einheiten · ${m} m · ${dur} gesamt`,
     noSamples: "Keine Messpunkte", avg: "Ø",
     endSession: "Einheit beenden", confirmEnd: "Diese Einheit jetzt beenden und den Monitor zurücksetzen?", endFailed: "Beenden fehlgeschlagen",
@@ -66,7 +66,7 @@ const I18N = {
     chartSpeed: "Speed in m/s", chartSpm: "Stroke rate",
     compareTitle: "Comparison", clearSelection: "Clear selection",
     chartCmp: "Speed from the start of each session",
-    allSessions: "All sessions", chartTrend: "Distance per session",
+    allSessions: "All sessions", chartTrend: "Distance per session", exportAll: "All as Excel",
     trendSum: (n, m, dur) => `${n} sessions · ${m} m · ${dur} total`,
     noSamples: "No samples", avg: "avg",
     endSession: "End session", confirmEnd: "End this session now and reset the monitor?", endFailed: "Could not end the session",
@@ -247,6 +247,7 @@ async function selectSession(id) {
   $("detail").hidden = false;
   $("detail-title").textContent = fmtWhen(s.session_id, s.started_at);
   $("csv").href = `/api/sessions/${id}/export.csv`;
+  $("xlsx").href = `/api/sessions/${id}/export.xlsx`;
   $("cmp-toggle").checked = compareSet.has(id);
 
   const speeds = samples.map((x) => x.speed_ms), spms = samples.map((x) => x.stroke_rate);
