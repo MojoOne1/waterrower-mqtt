@@ -1,27 +1,35 @@
-# The tracker, and optionally a broker to go with it.
+# Row alone: the tracker, and nothing else.
 #
-#   docker compose up -d                     you already have a broker
-#   docker compose --profile broker up -d    bring one along
+#   docker compose up -d
 #
-# The second form is for a house with no Home Assistant: the firmware needs
-# a broker, not HA. It is a profile rather than a commented-out block so the
-# file never has to be edited - an edited compose file shows up as a local
-# change for ever and argues with every pull.
+# It records, charts and exports your rowing on its own. This is also the
+# file to use when you join somebody else's arena - the uplink is a setting
+# in the form, not a different deployment, so there is nothing more to run.
 #
-# With --profile broker, create the password file first. Mosquitto 2 listens
-# on nothing and admits nobody until told, which is the right default and the
-# reason mosquitto/config/mosquitto.conf exists:
+# Rowing together, as in providing the arena, is the compose file at the
+# repository root.
+#
+# Nothing here needs a checkout - the image comes from GHCR, built by
+# .github/workflows/docker-publish.yml. Drop this file in a Dockge or
+# Portainer stack folder and it works.
+#
+# ---------------------------------------------------------------------------
+# No MQTT broker in the house?
+# ---------------------------------------------------------------------------
+# The firmware needs a broker, not Home Assistant. If you have neither,
+# uncomment the `mosquitto` block at the bottom and leave MQTT_HOST at
+# `mosquitto` - that is the container name and they share this network.
+#
+# Mosquitto 2 listens on nothing and admits nobody until told, so create the
+# password file the shipped mosquitto.conf points at first. The ESP and the
+# tracker both sign in with it:
 #
 #   mkdir -p mosquitto/config mosquitto/data
 #   docker run --rm -v "$PWD/mosquitto/config:/mosquitto/config" eclipse-mosquitto:2 \
 #     mosquitto_passwd -c -b /mosquitto/config/passwd waterrower DEIN-PASSWORT
 #
-# Then put that password in a .env next to this file as MQTT_PASSWORD, and
-# the same user and password into the ESP's secrets.yaml.
-#
-# Nothing here needs a checkout: the image comes from GHCR, built by
-# .github/workflows/docker-publish.yml on every push to master. This file on
-# its own is enough for a Dockge or Portainer stack.
+# Put that password in a .env next to this file as MQTT_PASSWORD, and the
+# same user and password into the ESP's secrets.yaml.
 name: waterrower
 
 services:
@@ -34,7 +42,7 @@ services:
     environment:
       # Must match the ESP's time zone: session IDs are local timestamps.
       TZ: Europe/Berlin
-      # Defaults to the broker below; point MQTT_HOST at your own otherwise.
+      # Your own broker, or `mosquitto` if you uncommented the block below.
       # Anything saved through the settings form lands in ./data/settings.json
       # and wins over these from then on.
       MQTT_HOST: "${MQTT_HOST:-mosquitto}"
@@ -50,17 +58,15 @@ services:
     volumes:
       - ./data:/data
 
-  mosquitto:
-    image: eclipse-mosquitto:2
-    container_name: waterrower-mosquitto
-    restart: unless-stopped
-    profiles: [broker]
-    ports:
-      # The ESP is on the network, not in this stack, so this one has to be
-      # published. Keep it on the LAN - do not forward it from the router.
-      - "1883:1883"
-    volumes:
-      - ./mosquitto/config:/mosquitto/config
-      - ./mosquitto/data:/mosquitto/data
-    # mosquitto/config/mosquitto.conf comes with the repository; only the
-    # password file next to it has to be created (see the header above).
+  # --- Uncomment for a broker of your own ----------------------------------
+  # mosquitto:
+  #   image: eclipse-mosquitto:2
+  #   container_name: waterrower-mosquitto
+  #   restart: unless-stopped
+  #   ports:
+  #     # The ESP is on the network, not in this stack, so this one has to be
+  #     # published. Keep it on the LAN - do not forward it from the router.
+  #     - "1883:1883"
+  #   volumes:
+  #     - ./mosquitto/config:/mosquitto/config
+  #     - ./mosquitto/data:/mosquitto/data

@@ -50,8 +50,8 @@ reachable MQTT broker. Home Assistant is not required for it.
 
 | File | Purpose |
 |---|---|
-| `docker-compose.yml` | Deploy: pulls the published image – the only file a host needs |
-| `mosquitto/config/mosquitto.conf` | The broker's configuration, for `--profile broker` |
+| `docker-compose.yml` | The rower's stack: the tracker, with a broker to uncomment if there is none in the house |
+| `mosquitto/config/mosquitto.conf` | The broker's configuration, for the commented-out Mosquitto block |
 | `docker-compose.build.yml` | Develop: builds the image from this folder |
 | `Dockerfile`, `requirements.txt` | Image definition (Python 3.12, FastAPI, paho-mqtt) |
 | `app/main.py` | HTTP API, Server-Sent Events stream, static files |
@@ -70,8 +70,7 @@ never talks to an ESP directly.
 
 | File | Purpose |
 |---|---|
-| `docker-compose.yml` | Deploy: the arena, plus `cloudflared` for the tunnel behind a profile |
-| `docker-compose.yml` (repo root) | Everything on one host: broker, tracker, arena and tunnel in one stack |
+| `../docker-compose.yml` | The host's stack – tracker, arena and tunnel – lives at the repository root |
 | `Dockerfile`, `requirements.txt` | Image definition (Python 3.12, FastAPI) |
 | `app/main.py` | App assembly, the two WebSocket endpoints, static files |
 | `app/ingest.py` | The uplink endpoint: one socket per tracker |
@@ -150,7 +149,7 @@ avoids backtracking.
    tracker's "End session" button (or the HA reset button), which also
    resets the monitor.
 8. **Arena** – only if you want to row against other people: deploy
-   `server/docker-compose.yml` once, create an athlete per person, and
+   `docker-compose.yml` from the repository root once, create an athlete per person, and
    paste each one's token into their tracker ([Arena](#arena-multiplayer)).
 
 ## Hardware
@@ -377,31 +376,26 @@ shown in the UI.
 ### Without Home Assistant
 
 The firmware needs a broker, not Home Assistant. If there is no HA in the
-house, the tracker's own compose file brings a Mosquitto along under a
-profile:
+house, uncomment the `mosquitto` block at the bottom of the compose file –
+it is in both of them, and the header of either has the whole recipe.
+
+Mosquitto 2 listens on nothing and admits nobody until told, which is the
+right default and the reason `mosquitto/config/mosquitto.conf` ships with
+the repository. Create the password file it points at – the ESP and the
+tracker both sign in with it:
 
 ```bash
 cd docker && mkdir -p mosquitto/config mosquitto/data
 ```
 
-Mosquitto 2 listens on nothing and admits nobody until told, so create the
-password file the shipped `mosquitto.conf` points at – the ESP and the
-tracker both sign in with it:
-
 ```bash
 docker run --rm -v "$PWD/mosquitto/config:/mosquitto/config" eclipse-mosquitto:2 mosquitto_passwd -c -b /mosquitto/config/passwd waterrower DEIN-PASSWORT
 ```
 
-Put that same password in a `.env` as `MQTT_PASSWORD`, then:
-
-```bash
-docker compose --profile broker up -d
-```
-
-The broker is on `<host>:1883` and the tracker on `<host>:8080`. In the
-ESP's `secrets.yaml`, point `mqtt_broker` at that host and use the same
-user and password. The tracker is already pointed at the broker by the
-compose file, so its settings form can stay untouched.
+Put that same password in a `.env` as `MQTT_PASSWORD` and leave `MQTT_HOST`
+at `mosquitto` – the container name, they share the stack's network. In the
+ESP's `secrets.yaml`, point `mqtt_broker` at the host's address and use the
+same user and password.
 
 Port 1883 has to be published – the ESP is on the network, not in the
 stack – but it belongs on the LAN. Do not forward it from the router: the
@@ -468,26 +462,32 @@ switches it; the default follows the browser language.
 
 ## Deployment shapes
 
-Four compose files, because there are four sensible things to run. They are
-separate containers throughout, on purpose: the tracker is what keeps
-recording while the arena is down for an update, and it holds the second
-copy of your rowing.
+Two files, because there are two things you can want.
 
-| File | Brings up | For |
+| | File | Brings up |
 |---|---|---|
-| `docker-compose.yml` (root) | tracker + arena, plus broker and tunnel | everything on one machine |
-| `docker/docker-compose.yml` | tracker, plus a broker | a rower: with or without Home Assistant |
-| `server/docker-compose.yml` | arena, plus the tunnel | the shared server, on its own |
+| **Row alone** | `docker/docker-compose.yml` | tracker |
+| **Row together** | `docker-compose.yml` (root) | tracker, arena, tunnel |
 
-All three take the same two profiles: `--profile broker` adds Mosquitto,
-`--profile tunnel` adds cloudflared, and without them you get the parts that
-are always in. They are profiles rather than commented-out blocks so the
-files never have to be edited - an edited compose file shows up as a local
-change for ever and argues with every pull. `--build` on any of them builds
-from the checkout instead of pulling.
+Rowing alone is the tracker and nothing else: it records, it charts, it
+exports. Joining somebody else's arena is *also* this file - the uplink is
+a setting in the form, not a different deployment - so a friend who gets an
+invitation needs no second container and nothing from the other row.
 
-A friend joining somebody else's arena needs the tracker only - the first
-or second row of that table. The arena is one person's job.
+Rowing together is what the root file sets up, for the one person who
+provides the arena the others point at. The tracker is in it as its own
+container, because it is what keeps recording while the arena is down for
+an update, holds the second copy of the data, works with the internet out,
+and does the Excel export.
+
+Both files carry a Mosquitto block commented out at the bottom, for a house
+with no broker - the firmware needs one, Home Assistant it does not.
+Uncomment it, create its password file (the header of either file has the
+command), and leave `MQTT_HOST` at `mosquitto`.
+
+`docker/docker-compose.build.yml` is a third file but not a third shape:
+it is the override that builds the tracker image from the checkout instead
+of pulling it.
 
 ## Arena (multiplayer)
 
@@ -521,12 +521,10 @@ not the data.
 
 ### Deploy
 
-`server/docker-compose.yml` runs the arena; the `cloudflared` container that
-publishes it sits behind a Compose profile, so you can bring the thing up on
-a port first and add the tunnel once it works.
-
-Put the repo on the Docker host and create a `.env` next to the compose file
-(see `server/.env.example`) with at least an admin password:
+The compose file at the repository root runs the arena, the tunnel that
+publishes it, and the tracker alongside. Put the repo on the Docker host and
+create a `.env` next to it (see `.env.example`) with at least an admin
+password:
 
 ```
 ARENA_ADMIN_PASSWORD=something-long
@@ -542,21 +540,22 @@ Open `http://<host>:8090` and sign in as `admin`. The database lives at
 `./data/arena.db`. Keep `ARENA_SECURE_COOKIES=0` while you are on plain
 HTTP – a Secure cookie is dropped there and the sign-in would not stick.
 
-To publish it:
+The tunnel is part of the same stack, so it comes up with everything else:
 
 1. In Cloudflare Zero Trust → Networks → Tunnels, create a tunnel and put
    its token in `.env` as `TUNNEL_TOKEN`.
 2. Under the tunnel's **Public Hostname**, point your hostname (say
-   `arena.example.com`) at `http://arena:8090`. Cloudflare proxies
-   WebSockets, which is what both the trackers and the browsers use.
-3. Set `ARENA_SECURE_COOKIES=1` and start it with the tunnel:
+   `arena.example.com`) at `http://arena:8090` – the container name, since
+   they share the stack's network. Cloudflare proxies WebSockets, which is
+   what both the trackers and the browsers use.
 
-   ```bash
-   docker compose --profile tunnel up -d --build
-   ```
-
-Once that works you can delete the `ports:` block and reach the arena only
-through the tunnel – nothing is then exposed on the host at all.
+The arena publishes no port of its own: cloudflared dials out, so nothing
+is exposed on the host at all. To check it without the tunnel first, add a
+`ports:` block to the arena service and set `ARENA_SECURE_COOKIES=0` while
+you do – over plain HTTP a Secure cookie is dropped and the sign-in would
+not stick. Take both back out afterwards: anything able to reach 8090
+directly could claim any address in `X-Forwarded-For` and walk around every
+lockout.
 
 The `--build` is only needed until this branch lands on `master`; after that
 the workflow publishes the image and plain `docker compose up -d` pulls it.
@@ -564,11 +563,10 @@ the workflow publishes the image and plain `docker compose up -d` pulls it.
 Any other reverse proxy works as well – the app listens on `8090`, honours
 `X-Forwarded-*`, and needs nothing but WebSocket pass-through.
 
-To run the lot on one host - broker, tracker, arena and tunnel - use the
-compose file at the **repository root** instead; see
-[Deployment shapes](#deployment-shapes). Adding `--build` to any of these
-builds from the checkout rather than pulling, which is also how you try the
-uplink end to end without touching a real setup.
+That root compose file brings the tracker up alongside, which is how you
+try the uplink end to end: mint a token in the arena and paste it into the
+tracker with `http://arena:8090`, the container name. `--build` on it
+builds both images from the checkout instead of pulling them.
 
 ### Adding your friends
 
