@@ -146,8 +146,8 @@ avoids backtracking.
    ([Tracker](#tracker-docker)). The footer shows the tracker and
    firmware versions once MQTT is flowing.
 7. **Row** – a session starts on the first stroke; end it with the
-   tracker's "End session" button (or the HA reset button), which also
-   resets the monitor.
+   tracker's "End session" button, or "End & zero" if you also want the
+   monitor back at zero (the HA reset button does the latter).
 8. **Arena** – only if you want to row against other people: deploy
    `docker-compose.yml` from the repository root once, create an athlete per person, and
    paste each one's token into their tracker ([Arena](#arena-multiplayer)).
@@ -420,8 +420,9 @@ docker compose -f docker-compose.build.yml up -d --build
   picks up the summary from `waterrower/session/last`
 - Lists all sessions, shows speed and stroke-rate history, compares up to
   four sessions overlaid
-- "End session" button that closes the running session on the ESP and
-  resets the monitor (like its power button)
+- Two session buttons: "End session" closes the running session on the ESP
+  and leaves the display to be read, "End & zero" also sets the monitor
+  back to zero. The arena shows the same pair with the same words
 - CSV and Excel export per session (the workbook has a summary sheet, all
   samples and a speed/stroke-rate chart), plus one workbook across all
   sessions with totals and a distance chart
@@ -449,7 +450,8 @@ For your own analysis:
 | `GET /api/version` | Tracker version and git commit |
 | `GET /api/live` | Current state |
 | `GET /api/stream` | Live updates as Server-Sent Events |
-| `POST /api/session/end` | End the running session and reset the monitor (publishes `cmd/end_session` = `reset`) |
+| `POST /api/session/end` | Close the running session, monitor keeps its display (publishes `cmd/end_session` = `end`) |
+| `POST /api/session/reset` | Close it and zero the monitor (publishes `cmd/end_session` = `reset`) |
 | `GET /api/sessions` | List of all sessions |
 | `GET /api/sessions/{id}` | Session with all samples |
 | `GET /api/sessions/{id}/export.csv` | Samples as CSV |
@@ -491,12 +493,17 @@ of pulling it.
 
 ## Arena (multiplayer)
 
-> **Alpha.** The arena works end to end – sign-in, uplink, backfill, races,
-> records – and is covered by tests, but it has not yet been run for a real
-> session by real people on real machines. Expect rough edges, and do not be
-> surprised if the database schema changes under you. The firmware, the
-> tracker's recording and the Home Assistant side are untouched by it: a
-> tracker with the uplink switched off behaves exactly as before.
+> **Real-world multiplayer untested.** The arena works end to end –
+> sign-in, uplink, backfill, races, records, badges – and 197 automated
+> checks say so, the uplink ones against a real tracker over a real
+> WebSocket. What has never happened is the thing it was built for: two
+> people, two WaterRowers, two houses, one race at the same moment. There
+> is one ESP32-S3 among us, so nobody has been able to try. Expect the
+> rough edges of a first outing.
+>
+> The firmware, the tracker's recording and the Home Assistant side are
+> untouched by any of it: a tracker with the uplink switched off behaves
+> exactly as it did before.
 
 One server, a handful of friends with their own WaterRowers, one shared
 training log – and races that happen at the same moment in different
@@ -728,17 +735,27 @@ distance race – the projected time still to go.
 
 While your own session is running, a strip of the S4's own readout - metres,
 time, split, rate, watts - sits docked at the bottom of whichever tab you
-are on, with the End session button on it. The race view goes static the
+are on, with the session buttons on it. The race view goes static the
 moment the race is over, and that is exactly when you are rowing it out and
 want to watch the numbers, so the readout cannot live on one tab.
 
+It goes the other way too: while a race is on, the tracker at the machine
+shows the countdown, then your place and the gap. The arena is on a phone
+somewhere; the screen in front of the rower is the tracker. The race state
+rides the uplink that is already open, so it costs no port, no second
+login and nothing new at the house.
+
 Crossing the line does not end your session – whether you are done is your
 call, not the race's, and after a hard 2 km most people row it out for a
-while. **End session** in the arena closes it when you say so: on your own
-tile in the Arena view and next to the race result, so the phone propped up
-on the ergometer can do what the tracker's own button does. It closes the
-session and leaves the display alone, so the numbers are still there to be
-read; zeroing happens at the next start. It only ever ends your own session.
+while. Two buttons close it when you say so, the same pair in the same
+order on both screens, so it does not matter which one you reach for:
+
+- **End session** closes the session and leaves the display alone, so the
+  numbers are still there to be read while you row it out.
+- **End & zero** closes it and sets the monitor back to zero, for when the
+  next piece starts straight away.
+
+Either only ever ends your own session.
 
 Left alone, the S4 closes the session itself once it has been idle long
 enough – ending it just means the summary, the averages and any personal
@@ -821,9 +838,13 @@ Everything needs a session cookie; the uplink uses its own token.
 | `GET /api/athletes`, `POST /api/athletes` | Athletes; creating one returns an invitation code (admin) |
 | `POST /api/athletes/{id}/tokens` | Mint a device token – returned once, stored hashed |
 | `GET /api/live` | Who is rowing right now, and the running race |
-| `POST /api/session/end` | Close my own session on my own monitor |
+| `POST /api/session/end` | Close my own session, my monitor keeps its display |
+| `POST /api/session/reset` | Close my own session and zero my monitor |
 | `GET /api/sessions`, `/api/sessions/{id}` | All athletes' sessions, one with its samples |
 | `GET /api/records`, `/api/totals`, `/api/h2h` | Leaderboards, totals, head to head |
+| `GET /api/sessions/{id}/export.csv`, `.xlsx` | One session as CSV or an Excel workbook |
+| `GET /api/export.xlsx` | Every athlete's sessions in one workbook, with a totals sheet |
+| `GET /api/backup` | A consistent copy of `arena.db`, taken while it runs (admin) |
 | `GET /api/achievements` | Badges, with hidden ones redacted for whoever has not earned them |
 | `POST` / `DELETE /api/achievements` | Add or remove a badge (admin) |
 | `GET` / `POST /api/security` | Lockout policies and who is locked out (admin) |
@@ -878,13 +899,10 @@ match: the `VERSION` file at the repo root and `substitutions.version` in
 
 ## Open items
 
-Arena (see the [alpha note](#arena-multiplayer)):
+Arena (see the [note above](#arena-multiplayer)):
 
-- A race banner in the tracker, so the countdown and the lanes are visible
-  at the machine instead of only on a phone next to it
-- Excel export, the way the tracker has it – the arena only does CSV per
-  session
-- A backup button for `arena.db`; right now copying the file is the plan
+- The arena's own views inside the tracker – the standings and your own
+  badges, read-only, over the uplink that is already open
 - More than one race at a time, and a race that survives a restart of the
   server (today it is marked aborted on start-up)
 
