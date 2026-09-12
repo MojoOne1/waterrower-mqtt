@@ -9,6 +9,13 @@
 # Rowing together, as in providing the arena, is the compose file at the
 # repository root.
 #
+# No `name:` and no `container_name:` on purpose. Both pin a name that
+# should follow the deployment instead: Dockge names the project after the
+# stack folder, and a pinned one makes it look for containers labelled
+# something else - the stack then reads as inactive while it runs fine. A
+# pinned container_name is worse still, being global rather than per
+# project, so a leftover from another stack blocks the name outright.
+#
 # Nothing here needs a checkout - the image comes from GHCR, built by
 # .github/workflows/docker-publish.yml. Drop this file in a Dockge or
 # Portainer stack folder and it works.
@@ -50,12 +57,10 @@
 # The first build downloads the toolchain and takes a few minutes; after
 # that it is cached in ./esphome/.esphome. Shut the container down again
 # when you are done if you would rather not leave it running.
-name: waterrower
 
 services:
   waterrower-tracker:
     image: ghcr.io/mojoone1/waterrower-mqtt:latest
-    container_name: waterrower-tracker
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -84,7 +89,6 @@ services:
   # --- Uncomment for a broker of your own ----------------------------------
   # mosquitto:
   #   image: eclipse-mosquitto:2
-  #   container_name: waterrower-mosquitto
   #   restart: unless-stopped
   #   ports:
   #     # The ESP is on the network, not in this stack, so this one has to be
@@ -97,7 +101,6 @@ services:
   # --- Uncomment to edit and flash the firmware from a browser --------------
   # esphome:
   #   image: ghcr.io/esphome/esphome:latest
-  #   container_name: waterrower-esphome
   #   restart: unless-stopped
   #   ports:
   #     - "6052:6052"

@@ -23,7 +23,8 @@
 #   TUNNEL_TOKEN=eyJhIjoi…          from Cloudflare Zero Trust
 #
 # In the tunnel's Public Hostname tab, point your hostname at
-# http://arena:8090 - the container name, they share this network.
+# http://arena:8090 - the service name, which compose resolves on the
+# network they share.
 #
 # Then: tracker on :8080, arena on your hostname. In the arena create
 # yourself an athlete (the admin account administers and does not row), mint
@@ -66,12 +67,10 @@
 # and add the override that builds from it:
 #
 #   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
-name: waterrower
 
 services:
   arena:
     image: ghcr.io/mojoone1/waterrower-mqtt/arena:latest
-    container_name: waterrower-arena
     restart: unless-stopped
     # No port published: cloudflared dials out. Anything able to reach 8090
     # directly could claim any address in X-Forwarded-For and walk around
@@ -98,7 +97,6 @@ services:
 
   cloudflared:
     image: cloudflare/cloudflared:latest
-    container_name: waterrower-tunnel
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:
@@ -108,7 +106,6 @@ services:
 
   tracker:
     image: ghcr.io/mojoone1/waterrower-mqtt:latest
-    container_name: waterrower-tracker
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -133,7 +130,6 @@ services:
   # --- Uncomment for a broker of your own ----------------------------------
   # mosquitto:
   #   image: eclipse-mosquitto:2
-  #   container_name: waterrower-mosquitto
   #   restart: unless-stopped
   #   ports:
   #     # The ESP is on the network, not in this stack. Keep it on the LAN -
@@ -146,7 +142,6 @@ services:
   # --- Uncomment to edit and flash the firmware from a browser --------------
   # esphome:
   #   image: ghcr.io/esphome/esphome:latest
-  #   container_name: waterrower-esphome
   #   restart: unless-stopped
   #   ports:
   #     - "6052:6052"
