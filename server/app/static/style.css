@@ -343,6 +343,45 @@ canvas {
 }
 .badge-feed .sub { margin-left: auto; color: var(--muted); font-size: 0.78rem; }
 
+/* --- My session, docked ------------------------------------------------ */
+/* The S4's own look: dark bezel, olive cells. Fixed rather than sticky, so
+   it holds whichever tab is open and however far it is scrolled - the race
+   view goes static the moment the race ends, which is exactly when you are
+   rowing it out and want to watch the numbers. */
+.my-session {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap;
+  background: linear-gradient(160deg, var(--housing), var(--housing-2));
+  padding: 8px 10px; box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.28);
+}
+.my-session .lcd-cell {
+  flex: 1 1 5.5rem; min-width: 4.6rem;
+  background: linear-gradient(170deg, var(--lcd), var(--lcd-2));
+  color: var(--lcd-ink); border-radius: 6px; padding: 0.3rem 0.55rem 0.25rem;
+  display: grid; grid-template-columns: 1fr auto;
+  grid-template-areas: "lbl unit" "val val";
+  align-items: end; column-gap: 0.4rem;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.26), inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+}
+.my-session .lbl { grid-area: lbl; font-size: 0.62rem; opacity: 0.85; align-self: start; }
+.my-session .unit { grid-area: unit; font-size: 0.62rem; opacity: 0.85; align-self: start; }
+.my-session .val {
+  grid-area: val; font-family: var(--mono); font-weight: 700; font-size: 1.35rem;
+  line-height: 1.05; text-align: right; font-variant-numeric: tabular-nums;
+}
+.my-session button.end-session {
+  width: auto; margin: 0; align-self: center; flex: 0 0 auto;
+  background: transparent; color: #e8eae3; border-color: rgba(255, 255, 255, 0.3);
+}
+.my-session button.end-session:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+/* Room so the bar never covers the last row of content. */
+body.has-bar .foot { margin-bottom: 6.5rem; }
+@media (max-width: 560px) {
+  .my-session .val { font-size: 1.1rem; }
+  .my-session button.end-session { flex: 1 1 100%; }
+  body.has-bar .foot { margin-bottom: 9rem; }
+}
+
 .toast {
   position: fixed; right: 1rem; bottom: 1rem; z-index: 50;
   display: flex; align-items: center; gap: 0.6rem;

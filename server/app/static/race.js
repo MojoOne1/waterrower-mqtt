@@ -425,11 +425,6 @@ function paintResult(host, r) {
   card.appendChild(table);
 
   const bar = el("div", "actions-bar");
-  // Whoever rowed it is probably still rowing it out, so offer the button
-  // here too rather than making them walk back to the Arena tab.
-  if (myLane(r) && (STATE.live.get(STATE.me.id) || {}).rowing) {
-    bar.appendChild(endSessionButton());
-  }
   const clear = el("button", "primary", t("btnClear"));
   clear.onclick = async () => {
     await api("/api/race/clear", { method: "POST" }).catch(() => {});

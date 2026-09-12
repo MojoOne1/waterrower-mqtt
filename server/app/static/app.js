@@ -526,10 +526,14 @@ function connect() {
       case "hello":
         msg.athletes.forEach((a) => STATE.live.set(a.athlete_id, a));
         STATE.race = msg.race;
+        paintMySession();
         render();
         break;
       case "live":
         msg.athletes.forEach((a) => STATE.live.set(a.athlete_id, a));
+        // Outside the view hooks on purpose: the bar belongs to every tab,
+        // and each view resets those hooks when it renders.
+        paintMySession();
         onLive();
         break;
       case "race":

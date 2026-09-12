@@ -51,8 +51,7 @@ reachable MQTT broker. Home Assistant is not required for it.
 | File | Purpose |
 |---|---|
 | `docker-compose.yml` | Deploy: pulls the published image – the only file a host needs |
-| `docker-compose.mosquitto.yml` | Deploy with a broker: the tracker plus its own Mosquitto, for a house without Home Assistant |
-| `mosquitto/config/mosquitto.conf` | That broker's configuration |
+| `mosquitto/config/mosquitto.conf` | The broker's configuration, for `--profile broker` |
 | `docker-compose.build.yml` | Develop: builds the image from this folder |
 | `Dockerfile`, `requirements.txt` | Image definition (Python 3.12, FastAPI, paho-mqtt) |
 | `app/main.py` | HTTP API, Server-Sent Events stream, static files |
@@ -378,12 +377,11 @@ shown in the UI.
 ### Without Home Assistant
 
 The firmware needs a broker, not Home Assistant. If there is no HA in the
-house, `docker/docker-compose.mosquitto.yml` brings the tracker and a
-Mosquitto of its own up together:
+house, the tracker's own compose file brings a Mosquitto along under a
+profile:
 
 ```bash
-cd docker
-mkdir -p mosquitto/config mosquitto/data
+cd docker && mkdir -p mosquitto/config mosquitto/data
 ```
 
 Mosquitto 2 listens on nothing and admits nobody until told, so create the
@@ -397,7 +395,7 @@ docker run --rm -v "$PWD/mosquitto/config:/mosquitto/config" eclipse-mosquitto:2
 Put that same password in a `.env` as `MQTT_PASSWORD`, then:
 
 ```bash
-docker compose -f docker-compose.mosquitto.yml up -d
+docker compose --profile broker up -d
 ```
 
 The broker is on `<host>:1883` and the tracker on `<host>:8080`. In the
@@ -477,15 +475,16 @@ copy of your rowing.
 
 | File | Brings up | For |
 |---|---|---|
-| `docker-compose.yml` (root) | broker, tracker, arena, tunnel | everything on one machine |
-| `docker/docker-compose.yml` | tracker | you have a broker, you want a training log |
-| `docker/docker-compose.mosquitto.yml` | tracker, broker | no Home Assistant in the house |
-| `server/docker-compose.yml` | arena, tunnel | the shared server, on its own |
+| `docker-compose.yml` (root) | tracker + arena, plus broker and tunnel | everything on one machine |
+| `docker/docker-compose.yml` | tracker, plus a broker | a rower: with or without Home Assistant |
+| `server/docker-compose.yml` | arena, plus the tunnel | the shared server, on its own |
 
-The root one takes profiles: `--profile broker` adds Mosquitto,
-`--profile tunnel` adds cloudflared, and without either you get the tracker
-and the arena against a broker you already run. `--build` on any of them
-builds from the checkout instead of pulling.
+All three take the same two profiles: `--profile broker` adds Mosquitto,
+`--profile tunnel` adds cloudflared, and without them you get the parts that
+are always in. They are profiles rather than commented-out blocks so the
+files never have to be edited - an edited compose file shows up as a local
+change for ever and argues with every pull. `--build` on any of them builds
+from the checkout instead of pulling.
 
 A friend joining somebody else's arena needs the tracker only - the first
 or second row of that table. The arena is one person's job.
@@ -728,6 +727,12 @@ each monitor and each S4 session starts from zero, and then counts down ten
 seconds. From the gun the view shows one lane per rower with distance,
 split, stroke rate, watts, the gap in metres *and* in seconds, and – in a
 distance race – the projected time still to go.
+
+While your own session is running, a strip of the S4's own readout - metres,
+time, split, rate, watts - sits docked at the bottom of whichever tab you
+are on, with the End session button on it. The race view goes static the
+moment the race is over, and that is exactly when you are rowing it out and
+want to watch the numbers, so the readout cannot live on one tab.
 
 Crossing the line does not end your session – whether you are done is your
 call, not the race's, and after a hard 2 km most people row it out for a

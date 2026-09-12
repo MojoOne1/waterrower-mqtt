@@ -1,7 +1,29 @@
-# Deploy-ready stack: pulls the prebuilt image from GHCR (built by
-# .github/workflows/docker-publish.yml on every push to master).
-# This is the only file needed on a deployment host / in a Dockge stack
-# folder - no repo checkout, no local build.
+# The tracker, and optionally a broker to go with it.
+#
+#   docker compose up -d                     you already have a broker
+#   docker compose --profile broker up -d    bring one along
+#
+# The second form is for a house with no Home Assistant: the firmware needs
+# a broker, not HA. It is a profile rather than a commented-out block so the
+# file never has to be edited - an edited compose file shows up as a local
+# change for ever and argues with every pull.
+#
+# With --profile broker, create the password file first. Mosquitto 2 listens
+# on nothing and admits nobody until told, which is the right default and the
+# reason mosquitto/config/mosquitto.conf exists:
+#
+#   mkdir -p mosquitto/config mosquitto/data
+#   docker run --rm -v "$PWD/mosquitto/config:/mosquitto/config" eclipse-mosquitto:2 \
+#     mosquitto_passwd -c -b /mosquitto/config/passwd waterrower DEIN-PASSWORT
+#
+# Then put that password in a .env next to this file as MQTT_PASSWORD, and
+# the same user and password into the ESP's secrets.yaml.
+#
+# Nothing here needs a checkout: the image comes from GHCR, built by
+# .github/workflows/docker-publish.yml on every push to master. This file on
+# its own is enough for a Dockge or Portainer stack.
+name: waterrower
+
 services:
   waterrower-tracker:
     image: ghcr.io/mojoone1/waterrower-mqtt:latest
@@ -12,12 +34,33 @@ services:
     environment:
       # Must match the ESP's time zone: session IDs are local timestamps.
       TZ: Europe/Berlin
-      # Optional: pre-fill the settings form. Anything saved through the
-      # form ends up in ./data/settings.json and takes precedence.
-      MQTT_HOST: ""
-      MQTT_PORT: 1883
-      MQTT_USERNAME: ""
-      MQTT_PASSWORD: ""
+      # Defaults to the broker below; point MQTT_HOST at your own otherwise.
+      # Anything saved through the settings form lands in ./data/settings.json
+      # and wins over these from then on.
+      MQTT_HOST: "${MQTT_HOST:-mosquitto}"
+      MQTT_PORT: "${MQTT_PORT:-1883}"
+      MQTT_USERNAME: "${MQTT_USERNAME:-waterrower}"
+      MQTT_PASSWORD: "${MQTT_PASSWORD:-}"
       MQTT_PREFIX: waterrower
+      # The arena's address can be pre-filled here, but the token cannot -
+      # it is minted in the arena and pasted into the tracker's Arena form.
+      # Setting only the address switches the uplink on with nothing to sign
+      # in with, so both are left to the form.
+      # ARENA_URL: https://arena.example.com
     volumes:
       - ./data:/data
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: waterrower-mosquitto
+    restart: unless-stopped
+    profiles: [broker]
+    ports:
+      # The ESP is on the network, not in this stack, so this one has to be
+      # published. Keep it on the LAN - do not forward it from the router.
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+    # mosquitto/config/mosquitto.conf comes with the repository; only the
+    # password file next to it has to be created (see the header above).

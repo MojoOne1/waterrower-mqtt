@@ -97,7 +97,6 @@ function liveCard(athlete, live) {
     cell("W", fmtInt(v.watts));
     cell(t("colTime"), fmtDur(v.t));
     card.appendChild(grid);
-    if (athlete.id === STATE.me.id) card.appendChild(endSessionButton());
   } else if (live.updated_at) {
     card.appendChild(el("p", "empty", t("lastSeen", fmtAgo(live.updated_at))));
   }
@@ -120,6 +119,43 @@ function endSessionButton() {
     }
   };
   return btn;
+}
+
+/* Your own session, docked at the bottom of every view for as long as it
+   runs. The race view goes static the moment the race is over, and that is
+   exactly when you are rowing it out and want to watch the numbers - so the
+   readout cannot live on one tab. Same olive LCD as the tracker, because it
+   is the same machine talking. */
+function paintMySession() {
+  const live = STATE.live.get(STATE.me && STATE.me.id) || {};
+  let bar = $("my-session");
+  if (!live.rowing) {
+    if (bar) bar.remove();
+    document.body.classList.remove("has-bar");
+    return;
+  }
+  const v = live.values || {};
+  if (!bar) {
+    bar = el("div", "my-session");
+    bar.id = "my-session";
+    document.body.appendChild(bar);
+    document.body.classList.add("has-bar");
+  }
+  bar.textContent = "";
+  const cell = (label, value, unit) => {
+    const d = el("div", "lcd-cell");
+    d.appendChild(el("span", "lbl", label));
+    const val = el("span", "val", value);
+    d.appendChild(val);
+    if (unit) d.appendChild(el("span", "unit", unit));
+    bar.appendChild(d);
+  };
+  cell(t("colDistance"), fmtInt(v.distance_m), "m");
+  cell(t("colTime"), fmtDur(v.t), "");
+  cell("500 m", fmtSplit(v.speed_ms), "");
+  cell("s/min", fmtInt(v.stroke_rate), "");
+  cell("W", fmtInt(v.watts), "");
+  bar.appendChild(endSessionButton());
 }
 
 // --- Sessions -------------------------------------------------------------
