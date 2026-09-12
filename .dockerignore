@@ -3,6 +3,7 @@
 .git/
 .github/
 docs/
+tests/
 server/
 homeassistant/
 *.zip

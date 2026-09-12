@@ -536,9 +536,9 @@ of pulling it.
 ## Arena (multiplayer)
 
 > **Real-world multiplayer untested.** The arena works end to end –
-> sign-in, uplink, backfill, races, records, badges – and 201 automated
-> checks say so, the uplink ones against a real tracker over a real
-> WebSocket. What has never happened is the thing it was built for: two
+> sign-in, uplink, backfill, races, records, badges – and 234 automated
+> checks say so (`tests/`), the uplink ones against a real tracker over a
+> real WebSocket. What has never happened is the thing it was built for: two
 > people, two WaterRowers, two houses, one race at the same moment. There
 > is one ESP32-S3 among us, so nobody has been able to try. Expect the
 > rough edges of a first outing.
@@ -938,6 +938,13 @@ match: the `VERSION` file at the repo root and `substitutions.version` in
   enumerating at all – so "linked" and "powers itself off" are mutually
   exclusive. If you want it off between workouts, cut the ESP's power,
   e.g. with a smart plug.
+
+## Tests
+
+Three suites under `tests/`, no framework: the arena in-process, the
+tracker's uplink against a real arena in a subprocess, and the tracker's
+own HTTP API. `python tests/run_all.py` runs all three; `tests/README.md`
+says what each one covers and what they deliberately leave alone.
 
 ## Open items
 
