@@ -32,6 +32,7 @@ import time
 
 from fastapi import WebSocket, WebSocketDisconnect
 
+import achievements
 import auth
 import records
 from hub import Uplink
@@ -109,6 +110,15 @@ async def uplink_endpoint(websocket: WebSocket, db, hub) -> None:
             log.info("Uplink down: %s", athlete["name"])
 
 
+async def _award(db, hub, athlete: dict, ctx: dict) -> None:
+    earned = await asyncio.to_thread(achievements.check, db, athlete["id"], ctx)
+    for badge in earned:
+        hub.broadcast({"type": "achievement", "athlete_id": athlete["id"],
+                       "display_name": athlete["display_name"],
+                       "name": badge["name"], "icon": badge["icon"],
+                       "note": badge["note"]})
+
+
 async def _ping(websocket: WebSocket) -> None:
     try:
         while True:
@@ -149,7 +159,9 @@ async def _handle(msg: dict, athlete: dict, db, hub, websocket: WebSocket,
         await asyncio.to_thread(db.close_session, session_id, time.time(), msg)
         await asyncio.to_thread(records.index_session, db, session_id)
         hub.on_session_end(athlete["id"], session_id)
-        hub.broadcast({"type": "session", "session": await asyncio.to_thread(db.session, session_id)})
+        stored = await asyncio.to_thread(db.session, session_id)
+        hub.broadcast({"type": "session", "session": stored})
+        await _award(db, hub, athlete, {"session": stored})
         log.info("Session closed: %s / %s", athlete["name"], remote_id)
 
     elif kind == "backfill":
@@ -166,7 +178,11 @@ async def _handle(msg: dict, athlete: dict, db, hub, websocket: WebSocket,
         await asyncio.to_thread(db.close_session, session_id, ended_at, summary)
         await asyncio.to_thread(records.index_session, db, session_id)
         await websocket.send_json({"type": "ack", "session": remote_id, "stored": True})
-        hub.broadcast({"type": "session", "session": await asyncio.to_thread(db.session, session_id)})
+        stored = await asyncio.to_thread(db.session, session_id)
+        hub.broadcast({"type": "session", "session": stored})
+        # Backfilled history counts too - somebody who rowed before joining
+        # should not have to row it again for the badge.
+        await _award(db, hub, athlete, {"session": stored})
         log.info("Backfilled %s / %s (%d samples)", athlete["name"], remote_id, len(rows))
 
     elif kind == "sync":

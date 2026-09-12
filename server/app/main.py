@@ -13,6 +13,7 @@ from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 
+import achievements
 import api
 import auth
 import config
@@ -94,6 +95,10 @@ def seed_templates() -> None:
 async def lifespan(app: FastAPI):
     bootstrap()
     seed_templates()
+    achievements.seed(db)
+    # History predating the badges still counts; so does a badge added
+    # later, which is caught up again when it is created.
+    await asyncio.to_thread(achievements.catch_up, db)
     log.info("Security: %s", api.apply_security())
     dropped = db.prune_failures(time.time() - api.FAILURE_KEEP_S)
     if dropped:
@@ -204,7 +209,7 @@ async def _drain(websocket: WebSocket) -> None:
 # --- UI --------------------------------------------------------------------
 
 ASSET_TAG = f"{config.APP_VERSION}-{config.GIT_COMMIT}"
-ASSETS = ["style.css", "app.js", "views.js", "charts.js", "race.js"]
+ASSETS = ["style.css", "app.js", "views.js", "charts.js", "race.js", "badges.js"]
 
 
 @app.get("/")

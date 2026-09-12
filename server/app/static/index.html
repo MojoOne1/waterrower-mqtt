@@ -58,6 +58,7 @@
       ><button type="button" data-view="race" data-i18n="navRace"></button
       ><button type="button" data-view="sessions" data-i18n="navSessions"></button
       ><button type="button" data-view="records" data-i18n="navRecords"></button
+      ><button type="button" data-view="badges" data-i18n="navBadges"></button
       ><button type="button" data-view="account" data-i18n="navAccount"></button>
     </nav>
   </header>
@@ -104,6 +105,15 @@
   </section>
 </template>
 
+<template id="tpl-badges">
+  <section class="stack">
+    <div id="badge-summary"></div>
+    <div id="badge-grid" class="badge-grid"></div>
+    <h2 data-i18n="badgesRecent"></h2>
+    <div id="badge-recent"></div>
+  </section>
+</template>
+
 <template id="tpl-records">
   <section class="stack">
     <h2 data-i18n="recordsDistance"></h2>
@@ -123,6 +133,7 @@
     <div id="acc-profile"></div>
     <h2 data-i18n="accTokens"></h2>
     <div id="acc-tokens"></div>
+    <div id="acc-badges"></div>
     <div id="acc-templates"></div>
     <div id="acc-security"></div>
     <div id="acc-admin"></div>
@@ -133,5 +144,6 @@
 <script src="/static/charts.js"></script>
 <script src="/static/views.js"></script>
 <script src="/static/race.js"></script>
+<script src="/static/badges.js"></script>
 </body>
 </html>

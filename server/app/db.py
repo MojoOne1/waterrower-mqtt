@@ -115,6 +115,30 @@ CREATE TABLE IF NOT EXISTS races (
     finished_at REAL
 );
 
+CREATE TABLE IF NOT EXISTS achievements (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    key        TEXT NOT NULL UNIQUE,        -- stable across renames
+    name       TEXT NOT NULL,
+    note       TEXT NOT NULL DEFAULT '',
+    icon       TEXT NOT NULL DEFAULT '',
+    metric     TEXT NOT NULL,               -- see achievements.METRICS
+    op         TEXT NOT NULL DEFAULT '>=',
+    threshold  REAL NOT NULL DEFAULT 0,
+    hidden     INTEGER NOT NULL DEFAULT 0,  -- a silhouette until earned
+    builtin    INTEGER NOT NULL DEFAULT 0,
+    created_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS athlete_achievements (
+    athlete_id     INTEGER NOT NULL REFERENCES athletes(id) ON DELETE CASCADE,
+    achievement_id INTEGER NOT NULL REFERENCES achievements(id) ON DELETE CASCADE,
+    earned_at      REAL NOT NULL,
+    value          REAL,
+    session_id     INTEGER,
+    race_id        INTEGER,
+    PRIMARY KEY (athlete_id, achievement_id)
+) WITHOUT ROWID;
+
 -- Named races an admin sets up once; the athletes pick one instead of
 -- filling the form every week.
 CREATE TABLE IF NOT EXISTS race_templates (
@@ -649,6 +673,125 @@ class Database:
         with self._lock, self._conn() as c:
             c.execute("DELETE FROM race_entries WHERE race_id = ?", (race_id,))
             c.execute("DELETE FROM races WHERE id = ?", (race_id,))
+
+    # --- Achievements -----------------------------------------------------
+
+    def achievements(self) -> list[dict]:
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT * FROM achievements ORDER BY hidden, id").fetchall()
+        return [dict(r) for r in rows]
+
+    def count_achievements(self) -> int:
+        with self._conn() as c:
+            return c.execute("SELECT COUNT(*) FROM achievements").fetchone()[0]
+
+    def add_achievement(self, key: str, name: str, note: str, icon: str, metric: str,
+                        op: str, threshold: float, hidden: bool,
+                        builtin: bool = False) -> int:
+        with self._lock, self._conn() as c:
+            cur = c.execute(
+                """INSERT INTO achievements
+                   (key, name, note, icon, metric, op, threshold, hidden, builtin, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (key, name, note, icon, metric, op, float(threshold),
+                 int(hidden), int(builtin), time.time()),
+            )
+            return cur.lastrowid
+
+    def delete_achievement(self, achievement_id: int) -> None:
+        with self._lock, self._conn() as c:
+            c.execute("DELETE FROM athlete_achievements WHERE achievement_id = ?",
+                      (achievement_id,))
+            c.execute("DELETE FROM achievements WHERE id = ?", (achievement_id,))
+
+    def award(self, athlete_id: int, achievement_id: int, value: float,
+              session_id: int | None, race_id: int | None) -> None:
+        with self._lock, self._conn() as c:
+            c.execute(
+                """INSERT OR IGNORE INTO athlete_achievements
+                   (athlete_id, achievement_id, earned_at, value, session_id, race_id)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (athlete_id, achievement_id, time.time(), value, session_id, race_id),
+            )
+
+    def earned_keys(self, athlete_id: int) -> set:
+        with self._conn() as c:
+            rows = c.execute(
+                """SELECT a.key FROM athlete_achievements e
+                   JOIN achievements a ON a.id = e.achievement_id
+                   WHERE e.athlete_id = ?""", (athlete_id,)).fetchall()
+        return {r[0] for r in rows}
+
+    def awards(self) -> list[dict]:
+        """Everything earned by anybody, for the badge wall."""
+        with self._conn() as c:
+            rows = c.execute(
+                """SELECT e.achievement_id, e.athlete_id, e.earned_at, e.value,
+                          a.display_name, a.color
+                   FROM athlete_achievements e
+                   JOIN athletes a ON a.id = e.athlete_id
+                   ORDER BY e.earned_at DESC""").fetchall()
+        return [dict(r) for r in rows]
+
+    # --- Numbers the achievement rules ask for ----------------------------
+
+    def athlete_session_count(self, athlete_id: int) -> float:
+        with self._conn() as c:
+            return float(c.execute(
+                "SELECT COUNT(*) FROM sessions WHERE athlete_id = ?",
+                (athlete_id,)).fetchone()[0])
+
+    def athlete_distance_total(self, athlete_id: int) -> float:
+        with self._conn() as c:
+            return float(c.execute(
+                "SELECT COALESCE(SUM(distance_m), 0) FROM sessions WHERE athlete_id = ?",
+                (athlete_id,)).fetchone()[0])
+
+    # Two statements rather than one with the aggregate pasted in: for a
+    # distance the best number is the smallest (a time), for a duration the
+    # largest (metres), and no SQL in this file is ever assembled from a
+    # value.
+    _BEST_MIN = """SELECT MIN(r.value) FROM session_records r
+                   JOIN sessions s ON s.id = r.session_id
+                   WHERE s.athlete_id = ? AND r.kind = ? AND r.key = ?"""
+    _BEST_MAX = """SELECT MAX(r.value) FROM session_records r
+                   JOIN sessions s ON s.id = r.session_id
+                   WHERE s.athlete_id = ? AND r.kind = ? AND r.key = ?"""
+
+    def athlete_best(self, kind: str, key: int, athlete_id: int) -> float | None:
+        """Their best effort over that distance or duration, or None."""
+        sql = self._BEST_MIN if kind == "distance" else self._BEST_MAX
+        with self._conn() as c:
+            row = c.execute(sql, (athlete_id, kind, key)).fetchone()
+        return float(row[0]) if row and row[0] is not None else None
+
+    def athlete_race_wins(self, athlete_id: int) -> int:
+        with self._conn() as c:
+            return c.execute(
+                """SELECT COUNT(*) FROM race_entries e JOIN races r ON r.id = e.race_id
+                   WHERE e.athlete_id = ? AND e.kind = 'live' AND e.place = 1
+                     AND r.state = 'finished'""", (athlete_id,)).fetchone()[0]
+
+    def athlete_race_places(self, athlete_id: int) -> list[int]:
+        """Their placings, most recent race first."""
+        with self._conn() as c:
+            rows = c.execute(
+                """SELECT e.place FROM race_entries e JOIN races r ON r.id = e.race_id
+                   WHERE e.athlete_id = ? AND e.kind = 'live' AND e.place IS NOT NULL
+                     AND r.state = 'finished'
+                   ORDER BY r.finished_at DESC""", (athlete_id,)).fetchall()
+        return [r[0] for r in rows]
+
+    def athlete_session_days(self, athlete_id: int) -> list[int]:
+        """Distinct days that have a session, newest first, as local midnights."""
+        with self._conn() as c:
+            rows = c.execute(
+                """SELECT DISTINCT CAST(strftime('%s', date(started_at, 'unixepoch', 'localtime'))
+                          AS INTEGER) AS day
+                   FROM sessions WHERE athlete_id = ? ORDER BY day DESC""",
+                (athlete_id,)).fetchall()
+        return [r[0] for r in rows]
 
     # --- Race templates ---------------------------------------------------
 

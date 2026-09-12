@@ -315,6 +315,45 @@ canvas {
 .legend li { display: flex; gap: 0.4rem; align-items: center; }
 .legend i { width: 18px; height: 3px; border-radius: 2px; display: inline-block; }
 
+/* --- Badges ----------------------------------------------------------- */
+/* A badge is an object, not a row: the mark carries it, and the card stays
+   quiet so a wall of them does not shout. Earned ones get the accent edge -
+   that is the whole hierarchy. */
+.badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.8rem; }
+.card.badge { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.9rem 1rem; }
+.card.badge.mine { border-color: var(--accent); box-shadow: var(--shadow-1), inset 3px 0 0 var(--accent); }
+.card.badge.locked { opacity: 0.62; border-style: dashed; }
+.badge-mark {
+  font-size: 1.6rem; line-height: 1.1;
+  filter: saturate(0.9);
+}
+.card.badge.locked .badge-mark { filter: grayscale(1); color: var(--muted); }
+.badge-mark.small { font-size: 1.05rem; }
+.badge-head { display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; }
+.card.badge .sub { color: var(--muted); font-size: 0.8rem; margin: 0; }
+.badge-holders { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.35rem; }
+.holder {
+  display: inline-flex; align-items: center; font-size: 0.74rem; color: var(--ink-2);
+  border: 1px solid var(--line); border-radius: 999px; padding: 0.05rem 0.5rem;
+}
+.badge-feed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.badge-feed li {
+  display: flex; align-items: center; gap: 0.55rem; font-size: 0.88rem;
+  border-bottom: 1px solid var(--line); padding: 0.35rem 0;
+}
+.badge-feed .sub { margin-left: auto; color: var(--muted); font-size: 0.78rem; }
+
+.toast {
+  position: fixed; right: 1rem; bottom: 1rem; z-index: 50;
+  display: flex; align-items: center; gap: 0.6rem;
+  background: var(--paper); border: 1px solid var(--accent);
+  border-radius: 10px; padding: 0.6rem 0.9rem; box-shadow: var(--shadow-2);
+  transition: opacity .5s, transform .5s;
+}
+.toast .sub { display: block; color: var(--muted); font-size: 0.8rem; }
+.toast.gone { opacity: 0; transform: translateY(6px); }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+
 /* --- Records ---------------------------------------------------------- */
 .rec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.8rem; }
 .card.rec { padding: 0.8rem 1rem; }

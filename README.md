@@ -732,6 +732,38 @@ limit. This is a race between friends, not a timing gate.
 Everything a race produces is kept: the placings, the linked sessions, and
 a head-to-head tally of who has beaten whom.
 
+### Badges
+
+A tab of its own. Twelve to start with, four of them hidden - a hidden one
+is a silhouette that says nothing about what it wants until you walk into
+it. That is per viewer, not per arena: the first person to find one does
+not spoil it for the other two.
+
+| | Visible | |
+|---|---|---|
+| Erste Fahrt | ✓ | first recorded session |
+| Zehntausend / Hunderttausend | ✓ | 10 km / 100 km in total |
+| Halbe Stunde | ✓ | 30 minutes without stopping |
+| Unter 2:00 | ✓ | 500 m under two minutes |
+| 2 km unter 8:00 | ✓ | best 2 km under eight minutes |
+| Erster Sieg / Dreimal in Folge | ✓ | one race won / three in a row |
+| Frühaufsteher | hidden | a session started before eight in the morning |
+| Nachtschicht | hidden | a session started after nine in the evening |
+| Wochenstreak | hidden | seven days in a row |
+| Fotofinish | hidden | a race won by under a second |
+
+Every rule has the same shape - **a metric, a comparison, a threshold** -
+and that is the whole vocabulary, which is what lets an admin add badges
+from the arena without anybody writing code. The cost is real and worth
+stating: a condition nobody anticipated cannot be expressed. A free text
+field would only have looked like it could.
+
+Checked on the server when a session closes and when a race ends, never in
+the browser - a badge you can award yourself is not worth having. History
+counts: a new badge is handed to whoever already qualifies, so nobody rows
+their first hundred kilometres again for a badge invented today, and an
+arena that backfilled a year of sessions gets its badges on the next start.
+
 ### Records and comparison
 
 Personal bests are scanned out of the samples with a rolling window, so the
@@ -766,6 +798,8 @@ Everything needs a session cookie; the uplink uses its own token.
 | `POST /api/session/end` | Close my own session on my own monitor |
 | `GET /api/sessions`, `/api/sessions/{id}` | All athletes' sessions, one with its samples |
 | `GET /api/records`, `/api/totals`, `/api/h2h` | Leaderboards, totals, head to head |
+| `GET /api/achievements` | Badges, with hidden ones redacted for whoever has not earned them |
+| `POST` / `DELETE /api/achievements` | Add or remove a badge (admin) |
 | `GET` / `POST /api/security` | Lockout policies and who is locked out (admin) |
 | `POST /api/security/unblock` | Lift one lockout, or all of them (admin) |
 | `POST /api/race`, `/api/race/join`, `/api/race/ready`, `/api/race/ghost`, `/api/race/start`, `/api/race/finish` | Run a race |

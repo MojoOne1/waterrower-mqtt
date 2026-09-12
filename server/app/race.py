@@ -26,6 +26,7 @@ import asyncio
 import logging
 import time
 
+import achievements
 import config
 
 log = logging.getLogger("race")
@@ -453,7 +454,16 @@ class RaceEngine:
 
         log.info("Race %s finished (%s)", r.id, reason)
         self._publish()
-        self.hub.broadcast({"type": "race_result", "race": self.db.race(r.id)})
+        stored = self.db.race(r.id)
+        self.hub.broadcast({"type": "race_result", "race": stored})
+
+        for lane in r.lanes:
+            if lane.kind != "live":
+                continue
+            for badge in achievements.check(self.db, lane.athlete_id, {"race": stored}):
+                self.hub.broadcast({"type": "achievement", "athlete_id": lane.athlete_id,
+                                    "display_name": lane.name, "name": badge["name"],
+                                    "icon": badge["icon"], "note": badge["note"]})
 
     @staticmethod
     def _place(r: Race) -> None:

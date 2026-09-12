@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 import auth
 import config
+import achievements as achievements_mod
 import records as records_mod
 
 log = logging.getLogger("api")
@@ -76,6 +77,16 @@ class NewTemplate(BaseModel):
     mode: str = "distance"
     target: int = 2000
     note: str = Field(default="", max_length=140)
+
+
+class NewAchievement(BaseModel):
+    name: str = Field(min_length=1, max_length=48)
+    note: str = Field(default="", max_length=160)
+    icon: str = Field(default="", max_length=8)
+    metric: str
+    op: str = ">="
+    threshold: float = 0
+    hidden: bool = False
 
 
 class Ready(BaseModel):
@@ -509,6 +520,70 @@ def clear_race(_: dict = Depends(auth.current_athlete)):
     if cleared:
         hub.broadcast({"type": "race", "race": None})
     return {"ok": True, "cleared": cleared}
+
+
+# --- Achievements ----------------------------------------------------------
+
+@router.get("/api/achievements")
+def list_achievements(athlete: dict = Depends(auth.current_athlete)):
+    """Badges, with a hidden one kept a silhouette until *you* have it.
+
+    Per viewer on purpose: the first person to stumble into a hidden badge
+    should not spoil it for the other two. Once you have it you see it in
+    full, including who else does.
+    """
+    mine = db.earned_keys(athlete["id"])
+    by_badge: dict[int, list] = {}
+    for row in db.awards():
+        by_badge.setdefault(row["achievement_id"], []).append(row)
+
+    out = []
+    for badge in db.achievements():
+        earned = by_badge.get(badge["id"], [])
+        if badge["hidden"] and badge["key"] not in mine:
+            out.append({"id": badge["id"], "hidden": True, "locked": True,
+                        "earned": []})
+            continue
+        out.append({
+            "id": badge["id"], "key": badge["key"], "name": badge["name"],
+            "note": badge["note"], "icon": badge["icon"], "hidden": bool(badge["hidden"]),
+            "builtin": bool(badge["builtin"]), "locked": False,
+            "metric": badge["metric"], "op": badge["op"], "threshold": badge["threshold"],
+            "earned": [{"athlete_id": e["athlete_id"], "display_name": e["display_name"],
+                        "color": e["color"], "earned_at": e["earned_at"],
+                        "value": e["value"]} for e in earned],
+        })
+    return {"achievements": out, "mine": sorted(mine)}
+
+
+@router.get("/api/achievements/metrics")
+def achievement_metrics(_: dict = Depends(auth.current_admin)):
+    """What a new badge can be built out of, for the admin form."""
+    return [{"metric": name, "unit": achievements_mod.METRIC_UNITS.get(name, "")}
+            for name in achievements_mod.METRICS]
+
+
+@router.post("/api/achievements")
+def create_achievement(body: NewAchievement, _: dict = Depends(auth.current_admin)):
+    if body.metric not in achievements_mod.METRICS:
+        raise HTTPException(400, "Unknown metric")
+    if body.op not in achievements_mod.OPS:
+        raise HTTPException(400, "Comparison must be >= or <=")
+    key = "custom_" + secrets.token_hex(4)
+    db.add_achievement(key, body.name.strip(), body.note.strip(), body.icon.strip(),
+                       body.metric, body.op, body.threshold, body.hidden)
+    # Whoever already qualifies gets it now; nobody re-rows their history for
+    # a badge that was invented today.
+    awarded = achievements_mod.catch_up(db)
+    return {"ok": True, "key": key, "awarded": awarded}
+
+
+@router.delete("/api/achievements/{achievement_id}")
+def delete_achievement(achievement_id: int, _: dict = Depends(auth.current_admin)):
+    """Takes the badge and everyone's copy of it - there is no orphan to
+    leave behind."""
+    db.delete_achievement(achievement_id)
+    return {"ok": True}
 
 
 # --- Race templates --------------------------------------------------------

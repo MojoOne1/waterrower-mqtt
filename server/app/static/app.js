@@ -36,7 +36,30 @@ const I18N = {
     pwKinds: "Drei von vier: Kleinbuchstaben, Großbuchstaben, Ziffern, Sonderzeichen.",
     themeAuto: "Auto", themeLight: "Hell", themeDark: "Dunkel",
     navArena: "Arena", navRace: "Rennen", navSessions: "Einheiten",
-    navRecords: "Bestenlisten", navAccount: "Konto",
+    navRecords: "Bestenlisten", navBadges: "Abzeichen", navAccount: "Konto",
+    badgesSummary: (got, all) => `${got} von ${all} Abzeichen.`,
+    badgesHiddenLeft: (n) => n === 1 ? "Eines ist noch unentdeckt." : `${n} sind noch unentdeckt.`,
+    badgesRecent: "Zuletzt vergeben", badgesNone: "Noch nichts vergeben.",
+    badgeUndiscovered: "Unentdeckt",
+    badgeUndiscoveredNote: "Ein verstecktes Abzeichen. Was es verlangt, steht hier erst, wenn du es hast.",
+    badgeWasHidden: "versteckt", badgeHidden: "versteckt",
+    badgeNobody: "Hat noch niemand.",
+    badgeYouEarned: "Abzeichen freigeschaltet",
+    badgesAdminHint: "Eine Regel ist immer: Kennzahl, Vergleich, Schwelle. Geprüft wird beim Beenden einer Einheit und am Rennende.",
+    badgeNew: "Abzeichen anlegen", badgeAdd: "Anlegen",
+    badgeName: "Name", badgeIcon: "Zeichen", badgeNote: "Beschreibung",
+    badgeMetric: "Kennzahl", badgeOp: "Vergleich", badgeThreshold: "Schwelle",
+    badgeHiddenLabel: "Versteckt – erst sichtbar, wenn jemand es hat",
+    badgeConfirmDelete: (n) => `„${n}" löschen? Alle, die es haben, verlieren es.`,
+    opAtLeast: "mindestens", opAtMost: "höchstens",
+    metric_sessions_total: "Einheiten insgesamt", metric_distance_total: "Meter insgesamt",
+    metric_session_distance: "Meter in einer Einheit", metric_session_duration: "Dauer einer Einheit",
+    metric_session_start_hour: "Startstunde", metric_best_500: "Bestzeit 500 m",
+    metric_best_1000: "Bestzeit 1000 m", metric_best_2000: "Bestzeit 2000 m",
+    metric_best_5000: "Bestzeit 5000 m", metric_best_10000: "Bestzeit 10000 m",
+    metric_furthest_1200: "Weiteste 20 Minuten", metric_furthest_3600: "Weiteste 60 Minuten",
+    metric_race_wins: "Siege insgesamt", metric_race_win_streak: "Siege in Folge",
+    metric_day_streak: "Tage in Folge", metric_race_margin_s: "Vorsprung im Ziel",
     connOn: "verbunden", connOff: "getrennt", connWait: "verbinde …",
 
     arenaNow: "Gerade auf dem Wasser", arenaWeek: "Diese Woche",
@@ -157,7 +180,30 @@ const I18N = {
     pwKinds: "Three of four: lower case, upper case, digits, anything else.",
     themeAuto: "Auto", themeLight: "Light", themeDark: "Dark",
     navArena: "Arena", navRace: "Race", navSessions: "Sessions",
-    navRecords: "Records", navAccount: "Account",
+    navRecords: "Records", navBadges: "Badges", navAccount: "Account",
+    badgesSummary: (got, all) => `${got} of ${all} badges.`,
+    badgesHiddenLeft: (n) => n === 1 ? "One is still undiscovered." : `${n} are still undiscovered.`,
+    badgesRecent: "Recently earned", badgesNone: "Nothing earned yet.",
+    badgeUndiscovered: "Undiscovered",
+    badgeUndiscoveredNote: "A hidden badge. What it takes is written here once you have it.",
+    badgeWasHidden: "hidden", badgeHidden: "hidden",
+    badgeNobody: "Nobody has this yet.",
+    badgeYouEarned: "Badge unlocked",
+    badgesAdminHint: "A rule is always a metric, a comparison and a threshold. Checked when a session closes and when a race ends.",
+    badgeNew: "New badge", badgeAdd: "Add",
+    badgeName: "Name", badgeIcon: "Mark", badgeNote: "Description",
+    badgeMetric: "Metric", badgeOp: "Comparison", badgeThreshold: "Threshold",
+    badgeHiddenLabel: "Hidden - shown only once somebody has it",
+    badgeConfirmDelete: (n) => `Delete "${n}"? Everyone who has it loses it.`,
+    opAtLeast: "at least", opAtMost: "at most",
+    metric_sessions_total: "Sessions in total", metric_distance_total: "Metres in total",
+    metric_session_distance: "Metres in one session", metric_session_duration: "Length of a session",
+    metric_session_start_hour: "Hour it started", metric_best_500: "Best 500 m",
+    metric_best_1000: "Best 1000 m", metric_best_2000: "Best 2000 m",
+    metric_best_5000: "Best 5000 m", metric_best_10000: "Best 10000 m",
+    metric_furthest_1200: "Furthest in 20 minutes", metric_furthest_3600: "Furthest in 60 minutes",
+    metric_race_wins: "Wins in total", metric_race_win_streak: "Wins in a row",
+    metric_day_streak: "Days in a row", metric_race_margin_s: "Winning margin",
     connOn: "connected", connOff: "disconnected", connWait: "connecting …",
 
     arenaNow: "On the water now", arenaWeek: "This week",
@@ -489,6 +535,10 @@ function connect() {
       case "race":
         STATE.race = msg.race;
         onRace();
+        break;
+      case "achievement":
+        badgeToast(msg);
+        if (STATE.view === "badges") render();
         break;
       case "race_result":
       case "session":

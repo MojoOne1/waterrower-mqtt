@@ -433,6 +433,7 @@ VIEWS.account = async function account() {
     $("acc-tokens").innerHTML = "";
     document.querySelectorAll('[data-i18n="accTokens"]').forEach((n) => { n.hidden = true; });
     await paintSecurity();
+    await paintBadgesAdmin();
     await paintTemplates_admin();
     await paintAdmin();
   } else {
