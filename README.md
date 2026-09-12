@@ -72,7 +72,7 @@ never talks to an ESP directly.
 | File | Purpose |
 |---|---|
 | `docker-compose.yml` | Deploy: the arena, plus `cloudflared` for the tunnel behind a profile |
-| `docker-compose.local.yml` | Test: arena *and* tracker built from this checkout, both on localhost |
+| `docker-compose.yml` (repo root) | Everything on one host: broker, tracker, arena and tunnel in one stack |
 | `Dockerfile`, `requirements.txt` | Image definition (Python 3.12, FastAPI) |
 | `app/main.py` | App assembly, the two WebSocket endpoints, static files |
 | `app/ingest.py` | The uplink endpoint: one socket per tracker |
@@ -468,6 +468,28 @@ For your own analysis:
 The UI is available in English and German – the DE/EN toggle in the header
 switches it; the default follows the browser language.
 
+## Deployment shapes
+
+Four compose files, because there are four sensible things to run. They are
+separate containers throughout, on purpose: the tracker is what keeps
+recording while the arena is down for an update, and it holds the second
+copy of your rowing.
+
+| File | Brings up | For |
+|---|---|---|
+| `docker-compose.yml` (root) | broker, tracker, arena, tunnel | everything on one machine |
+| `docker/docker-compose.yml` | tracker | you have a broker, you want a training log |
+| `docker/docker-compose.mosquitto.yml` | tracker, broker | no Home Assistant in the house |
+| `server/docker-compose.yml` | arena, tunnel | the shared server, on its own |
+
+The root one takes profiles: `--profile broker` adds Mosquitto,
+`--profile tunnel` adds cloudflared, and without either you get the tracker
+and the arena against a broker you already run. `--build` on any of them
+builds from the checkout instead of pulling.
+
+A friend joining somebody else's arena needs the tracker only - the first
+or second row of that table. The arena is one person's job.
+
 ## Arena (multiplayer)
 
 > **Alpha.** The arena works end to end – sign-in, uplink, backfill, races,
@@ -543,10 +565,11 @@ the workflow publishes the image and plain `docker compose up -d` pulls it.
 Any other reverse proxy works as well – the app listens on `8090`, honours
 `X-Forwarded-*`, and needs nothing but WebSocket pass-through.
 
-To exercise the uplink end to end without touching your real setup,
-`server/docker-compose.local.yml` builds the arena *and* a tracker from this
-checkout and puts them on `localhost:8090` and `localhost:8080`; the header
-comment in that file walks through connecting one to the other.
+To run the lot on one host - broker, tracker, arena and tunnel - use the
+compose file at the **repository root** instead; see
+[Deployment shapes](#deployment-shapes). Adding `--build` to any of these
+builds from the checkout rather than pulling, which is also how you try the
+uplink end to end without touching a real setup.
 
 ### Adding your friends
 

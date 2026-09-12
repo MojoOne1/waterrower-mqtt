@@ -1,0 +1,104 @@
+# Everything on one host: broker, tracker, arena, tunnel.
+#
+# This is the "I want the lot" stack. The components stay separate
+# containers on purpose - the tracker is what keeps recording when the
+# arena is down for an update, and it holds the second copy of your data -
+# but they come up and go down together and share one file.
+#
+# Pick what you need with profiles; the arena and the tracker are always in:
+#
+#   docker compose --profile broker up -d                 broker + tracker + arena
+#   docker compose --profile broker --profile tunnel up -d   ...and published
+#   docker compose up -d                                  you already have a broker
+#
+# Before the first start, a .env next to this file:
+#
+#   ARENA_ADMIN_PASSWORD=something-long
+#   MQTT_PASSWORD=whatever-the-broker-wants
+#   TUNNEL_TOKEN=eyJhIjoi…          (only with --profile tunnel)
+#
+# With --profile broker, create the broker's password file first - Mosquitto 2
+# lets nobody in until told:
+#
+#   mkdir -p docker/mosquitto/config docker/mosquitto/data
+#   docker run --rm -v "$PWD/docker/mosquitto/config:/mosquitto/config" \
+#     eclipse-mosquitto:2 mosquitto_passwd -c -b /mosquitto/config/passwd waterrower DEIN-PASSWORT
+#
+# Then: tracker on :8080, arena on :8090. In the arena create yourself an
+# athlete, mint a token under Konto -> Tracker-Verbindung, and paste it into
+# the tracker under Arena together with  http://arena:8090  - the container
+# name, because they share this network.
+#
+# Add --build to any of these to build from this checkout instead of pulling.
+name: waterrower
+
+services:
+  arena:
+    image: ghcr.io/mojoone1/waterrower-mqtt/arena:latest
+    build:
+      context: ./server
+    container_name: waterrower-arena
+    restart: unless-stopped
+    ports:
+      # Drop this once the tunnel is doing the work - see the note in
+      # server/docker-compose.yml about why it matters.
+      - "8090:8090"
+    environment:
+      TZ: Europe/Berlin
+      ARENA_ADMIN_USER: admin
+      ARENA_ADMIN_NAME: Admin
+      ARENA_ADMIN_PASSWORD: "${ARENA_ADMIN_PASSWORD:?put ARENA_ADMIN_PASSWORD in .env}"
+      ARENA_ADMIN_RESET: "${ARENA_ADMIN_RESET:-0}"
+      # 0 while you reach it over plain http, 1 once the tunnel is in front.
+      ARENA_SECURE_COOKIES: "${ARENA_SECURE_COOKIES:-0}"
+    volumes:
+      - ./server/data:/data
+
+  tracker:
+    image: ghcr.io/mojoone1/waterrower-mqtt:latest
+    build:
+      context: ./docker
+    container_name: waterrower-tracker
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Must match the ESP's time zone: session IDs are local timestamps.
+      TZ: Europe/Berlin
+      # Defaults to the broker in this stack; point it elsewhere if you
+      # already have one.
+      MQTT_HOST: "${MQTT_HOST:-mosquitto}"
+      MQTT_PORT: "${MQTT_PORT:-1883}"
+      MQTT_USERNAME: "${MQTT_USERNAME:-waterrower}"
+      MQTT_PASSWORD: "${MQTT_PASSWORD:-}"
+      MQTT_PREFIX: waterrower
+      # Deliberately not pre-filled: the token is minted in the arena and
+      # pasted into the tracker's Arena form, and setting only the address
+      # here would leave the uplink switched on with nothing to sign in with.
+      # ARENA_URL: http://arena:8090
+    volumes:
+      - ./docker/data:/data
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: waterrower-mosquitto
+    restart: unless-stopped
+    profiles: [broker]
+    ports:
+      # The ESP is on the network, not in this stack. Keep it on the LAN -
+      # do not forward it from the router.
+      - "1883:1883"
+    volumes:
+      - ./docker/mosquitto/config:/mosquitto/config
+      - ./docker/mosquitto/data:/mosquitto/data
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: waterrower-tunnel
+    restart: unless-stopped
+    profiles: [tunnel]
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: "${TUNNEL_TOKEN:?put TUNNEL_TOKEN in .env}"
+    depends_on:
+      - arena
