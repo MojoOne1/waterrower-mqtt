@@ -88,6 +88,10 @@ services:
       # afterwards, or every restart puts that password back.
       ARENA_ADMIN_RESET: "${ARENA_ADMIN_RESET:-0}"
       # Cloudflare terminates the TLS, so the cookie stays Secure.
+      # Testing over plain http? Set it to 0 in .env - commenting this line
+      # out does the opposite of what it looks like: the app defaults to
+      # secure, the browser drops the cookie, and the sign-in silently will
+      # not stick. Only the string "0" turns it off, not "false" or "no".
       ARENA_SECURE_COOKIES: "${ARENA_SECURE_COOKIES:-1}"
     volumes:
       - ./server/data:/data
