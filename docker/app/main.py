@@ -62,18 +62,25 @@ db = Database(DB_PATH)
 state = LiveState()
 
 
-def on_arena_command(cmd: str, _msg: dict) -> None:
-    """Both of these go out on the same topic the "End session" button uses.
+def on_arena_command(cmd: str, msg: dict) -> None:
+    """What the arena can ask of this tracker.
 
-    The firmware treats the payload "reset" as close-and-zero and anything
-    else as close-only, which is exactly the distinction wanted here: zero
-    the monitor before the gun, but at the finish just close the session
-    and leave the numbers on the display to be read.
+    The two session commands go out on the same topic the "End session"
+    button uses. The firmware treats the payload "reset" as close-and-zero
+    and anything else as close-only, which is exactly the distinction
+    wanted here: zero the monitor before the gun, but at the finish just
+    close the session and leave the numbers on the display to be read.
+
+    "race" carries no instruction at all - it is the countdown and the
+    rower's own standing, so the screen at the machine can show them
+    without a phone propped up next to it.
     """
     if cmd == "reset":
         ingest.publish("cmd/end_session", "reset")
     elif cmd == "end":
         ingest.publish("cmd/end_session", "end")
+    elif cmd == "race":
+        state.set_race(msg.get("race"))
 
 
 link = Uplink(db, load_settings(), on_command=on_arena_command)

@@ -181,6 +181,14 @@ VIEWS.sessions = async function sessions() {
 
   $("cmp-clear").onclick = () => { STATE.compare.clear(); VIEWS.sessions(); };
 
+  const all = $("export-all");
+  if (all) {
+    // Carries the range from the filter above it, so what you exported is
+    // what you were looking at.
+    all.href = STATE.filter.days ? `/api/export.xlsx?days=${STATE.filter.days}`
+                                 : "/api/export.xlsx";
+  }
+
   const params = new URLSearchParams();
   if (STATE.filter.athlete_id) params.set("athlete_id", STATE.filter.athlete_id);
   if (STATE.filter.days) params.set("days", STATE.filter.days);
@@ -255,6 +263,10 @@ async function paintDetail(id) {
   const csv = el("a", null, t("exportCsv"));
   csv.href = `/api/sessions/${id}/export.csv`;
   actions.appendChild(csv);
+
+  const xlsx = el("a", null, t("exportXlsx"));
+  xlsx.href = `/api/sessions/${id}/export.xlsx`;
+  actions.appendChild(xlsx);
 
   if (STATE.me.is_admin || STATE.me.id === s.athlete_id) {
     const del = el("a", null, t("delete"));
@@ -474,6 +486,7 @@ VIEWS.account = async function account() {
     $("acc-tokens").innerHTML = "";
     document.querySelectorAll('[data-i18n="accTokens"]').forEach((n) => { n.hidden = true; });
     await paintSecurity();
+    paintBackup();
     await paintBadgesAdmin();
     await paintTemplates_admin();
     await paintAdmin();
@@ -483,6 +496,17 @@ VIEWS.account = async function account() {
 };
 
 // --- Race templates (admin) -----------------------------------------------
+
+function paintBackup() {
+  const host = $("acc-backup");
+  if (!host) return;
+  host.innerHTML = "";
+  host.appendChild(el("h2", null, t("backupTitle")));
+  host.appendChild(el("p", "hint", t("backupHint")));
+  const link = el("a", "button-link", t("backupDownload"));
+  link.href = "/api/backup";
+  host.appendChild(link);
+}
 
 async function paintTemplates_admin() {
   const host = $("acc-templates");

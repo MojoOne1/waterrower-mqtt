@@ -3,7 +3,10 @@
 import csv
 import io
 import logging
+import os
+import pathlib
 import secrets
+import tempfile
 import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -14,6 +17,7 @@ import auth
 import config
 import achievements as achievements_mod
 import records as records_mod
+import xlsx_export
 
 log = logging.getLogger("api")
 router = APIRouter()
@@ -369,6 +373,48 @@ def delete_session(session_id: int, athlete: dict = Depends(auth.current_athlete
     db.delete_session(session_id)
     hub.broadcast({"type": "session_deleted", "session_id": session_id})
     return {"ok": True}
+
+
+def _xlsx(content: bytes, filename: str) -> Response:
+    return Response(content=content, media_type=xlsx_export.MEDIA_TYPE,
+                    headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@router.get("/api/sessions/{session_id}/export.xlsx")
+def export_session_xlsx(session_id: int, _: dict = Depends(auth.current_athlete)):
+    """One workbook: the summary, every sample, and two charts."""
+    session = db.session(session_id)
+    if not session:
+        raise HTTPException(404, "No such session")
+    content = xlsx_export.build_session(session, db.samples(session_id))
+    return _xlsx(content, f"{session['athlete_name']}-{session['remote_id']}.xlsx")
+
+
+@router.get("/api/export.xlsx")
+def export_all_xlsx(days: int | None = None, _: dict = Depends(auth.current_athlete)):
+    """Every athlete's sessions in one sheet, sortable, plus the totals."""
+    since = time.time() - days * 86400 if days else None
+    sessions = db.list_sessions(limit=5000, since=since)
+    if not sessions:
+        raise HTTPException(404, "Nothing recorded yet")
+    return _xlsx(xlsx_export.build_overview(sessions, db.totals(since)),
+                 "waterrower-arena.xlsx")
+
+
+@router.get("/api/backup")
+def backup(_: dict = Depends(auth.current_admin)):
+    """The whole arena as one file: athletes, sessions, samples, races,
+    badges, settings. It also holds the hashes and the invitation codes, so
+    it is admin-only and worth keeping somewhere private."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "arena.db")
+        size = db.backup_to(path)
+        content = pathlib.Path(path).read_bytes()
+    stamp = time.strftime("%Y%m%dT%H%M%S")
+    log.info("Backup taken: %.1f MiB", size / (1 << 20))
+    return Response(content=content, media_type="application/vnd.sqlite3",
+                    headers={"Content-Disposition":
+                             f'attachment; filename="arena-{stamp}.db"'})
 
 
 @router.get("/api/sessions/{session_id}/export.csv")

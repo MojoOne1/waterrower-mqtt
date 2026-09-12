@@ -57,6 +57,7 @@ class Hub:
         self.live: dict[int, dict] = {}
         self._dirty: set[int] = set()
         self.races = None                  # set by main.py; avoids a cycle
+        self._race_sent: dict[int, str] = {}   # athlete -> last payload sent
 
     # --- Live state -------------------------------------------------------
 
@@ -128,6 +129,47 @@ class Hub:
         for v in list(self.viewers):
             v.send(msg)
 
+    async def _push_race(self) -> None:
+        """Send each racer their own slice of the race, down their uplink.
+
+        So the tracker at the machine can show the countdown and where they
+        stand - the arena is on a phone somewhere, the tracker is on the
+        screen in front of them. Only their own lane and the gap, not the
+        whole field: the tracker has no room for it and the arena is where
+        you go to watch everybody.
+        """
+        race = self.races.active() if self.races else None
+        if not race or race.state not in ("countdown", "running", "finished"):
+            for athlete_id in list(self._race_sent):
+                self._race_sent.pop(athlete_id, None)
+                await self.command(athlete_id, "race", race=None)
+            return
+
+        public = race.public()
+        leader = max((l for l in public["lanes"]), key=lambda l: l["progress"], default=None)
+        for lane in public["lanes"]:
+            if lane["kind"] != "live":
+                continue
+            payload = {
+                "state": public["state"],
+                "name": public["name"],
+                "mode": public["mode"],
+                "target": public["target"],
+                "elapsed": public["elapsed"],
+                "countdown_in": public["countdown_in"],
+                "place": lane["place"] or (1 if leader and lane is leader else None),
+                "progress": lane["progress"],
+                "gap_m": lane["gap_m"],
+                "finished": lane["finished"],
+                "time_s": lane["time_s"],
+                "lanes": len([l for l in public["lanes"]]),
+            }
+            fingerprint = repr(payload)
+            if self._race_sent.get(lane["athlete_id"]) == fingerprint:
+                continue
+            self._race_sent[lane["athlete_id"]] = fingerprint
+            await self.command(lane["athlete_id"], "race", race=payload)
+
     async def command(self, athlete_id: int, cmd: str, **extra) -> bool:
         """Ask an athlete's tracker to do something (today: reset the monitor)."""
         uplink = self.uplinks.get(athlete_id)
@@ -153,5 +195,6 @@ class Hub:
                         for a in self._dirty if a in self.live]
                     self._dirty.clear()
                     self.broadcast({"type": "live", "athletes": states})
+                await self._push_race()
             except Exception:
                 log.exception("Hub loop")

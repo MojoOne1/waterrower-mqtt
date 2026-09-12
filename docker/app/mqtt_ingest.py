@@ -22,12 +22,18 @@ class LiveState:
         self.session_active: bool = False
         self.updated_at: float = 0
         self.connected: bool = False
+        self.race: dict | None = None      # pushed down from the arena
         self._listeners: list = []
 
     def update(self, **kwargs):
         with self._lock:
             self.values.update({k: v for k, v in kwargs.items() if v is not None})
             self.updated_at = time.time()
+        self._notify()
+
+    def set_race(self, race: dict | None) -> None:
+        with self._lock:
+            self.race = race
         self._notify()
 
     def snapshot(self) -> dict:
@@ -38,6 +44,7 @@ class LiveState:
                 "session_active": self.session_active,
                 "updated_at": self.updated_at,
                 "connected": self.connected,
+                "race": dict(self.race) if self.race else None,
             }
 
     def subscribe(self, cb):

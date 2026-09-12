@@ -526,6 +526,22 @@ class Database:
             c.execute("DELETE FROM samples        WHERE session_id = ?", (session_id,))
             c.execute("DELETE FROM sessions       WHERE id = ?", (session_id,))
 
+    def backup_to(self, path: str) -> int:
+        """A consistent copy, taken while everything keeps running.
+
+        Not a file copy: in WAL mode the database is three files and the
+        newest rows live in the -wal one, so copying `arena.db` alone hands
+        back a stale and possibly torn database. sqlite3's own backup walks
+        the pages under a read lock and writes a single finished file.
+        """
+        with self._lock, self._conn() as src:
+            dst = sqlite3.connect(path)
+            try:
+                src.backup(dst)
+            finally:
+                dst.close()
+        return Path(path).stat().st_size
+
     # --- Personal bests ---------------------------------------------------
 
     def save_records(self, session_id: int, rows: list[tuple[str, int, float]]) -> None:

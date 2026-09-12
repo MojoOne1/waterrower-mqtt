@@ -56,6 +56,11 @@ const I18N = {
     trendSum: (n, m, dur) => `${n} Einheiten · ${m} m · ${dur} gesamt`,
     noSamples: "Keine Messpunkte", avg: "Ø",
     endSession: "Einheit beenden", confirmEnd: "Diese Einheit jetzt beenden und den Monitor zurücksetzen?", endFailed: "Beenden fehlgeschlagen",
+    raceFree: "Frei rudern", raceGo: "LOS",
+    raceHold: "Monitor wird genullt – noch nicht rudern",
+    racePlace: (p, n) => `Platz ${p} von ${n}`,
+    raceLead: "in Führung", raceDone: (t) => `im Ziel ${t}`,
+    raceOver: "Rennen beendet",
     fDistance: "Distanz", fDuration: "Dauer", fSplit: "Ø 500 m", fAvgSpeed: "Ø Geschwindigkeit", fPeak: "Spitze",
     fAvgSpm: "Ø Schlagfrequenz", fStrokes: "Schläge", fMeterPerStroke: "Meter je Schlag",
     arenaTitle: "Arena – gemeinsam rudern",
@@ -95,6 +100,11 @@ const I18N = {
     trendSum: (n, m, dur) => `${n} sessions · ${m} m · ${dur} total`,
     noSamples: "No samples", avg: "avg",
     endSession: "End session", confirmEnd: "End this session now and reset the monitor?", endFailed: "Could not end the session",
+    raceFree: "Just row", raceGo: "GO",
+    raceHold: "Monitor being zeroed - do not row yet",
+    racePlace: (p, n) => `Place ${p} of ${n}`,
+    raceLead: "in the lead", raceDone: (t) => `finished ${t}`,
+    raceOver: "Race over",
     fDistance: "Distance", fDuration: "Duration", fSplit: "Avg 500 m", fAvgSpeed: "Avg speed", fPeak: "Peak",
     fAvgSpm: "Avg stroke rate", fStrokes: "Strokes", fMeterPerStroke: "Metres per stroke",
     arenaTitle: "Arena – rowing together",
@@ -210,8 +220,55 @@ async function getSession(id) {
 
 // --- Live display --------------------------------------------------------
 
+/* The arena pushes each racer their own slice down the uplink, so the
+   screen at the machine can show the countdown and where they stand
+   without a phone propped up next to it. Their lane only - the whole field
+   is what the arena itself is for. */
+function renderRace(race) {
+  const strip = $("race-strip");
+  if (!strip) return;
+  strip.hidden = !race;
+  strip.className = "race-strip";
+  if (!race) return;
+  strip.textContent = "";
+
+  const label = race.mode === "distance" ? `${fmtInt(race.target)} m`
+    : race.mode === "time" ? fmtDur(race.target) : t("raceFree");
+  const head = document.createElement("span");
+  head.className = "race-name";
+  head.textContent = [race.name, label].filter(Boolean).join(" · ");
+  strip.appendChild(head);
+
+  const big = document.createElement("span");
+  big.className = "race-big";
+  const rest = document.createElement("span");
+  rest.className = "race-rest";
+
+  if (race.state === "countdown") {
+    strip.classList.add("countdown");
+    const left = Math.max(0, Math.ceil(race.countdown_in || 0));
+    big.textContent = left > 0 ? String(left) : t("raceGo");
+    rest.textContent = t("raceHold");
+  } else if (race.state === "running") {
+    big.textContent = fmtInt(race.progress) + " m";
+    const bits = [];
+    if (race.place) bits.push(t("racePlace", race.place, race.lanes));
+    if (race.finished) bits.push(t("raceDone", fmtDur(race.time_s)));
+    else if (race.gap_m > 0) bits.push(`−${fmtInt(race.gap_m)} m`);
+    else bits.push(t("raceLead"));
+    rest.textContent = bits.join("  ·  ");
+  } else {
+    strip.classList.add("done");
+    big.textContent = race.time_s != null ? fmtDur(race.time_s) : fmtInt(race.progress) + " m";
+    rest.textContent = race.place ? t("racePlace", race.place, race.lanes) : t("raceOver");
+  }
+  strip.appendChild(big);
+  strip.appendChild(rest);
+}
+
 function renderLive(snap) {
   lastSnap = snap;
+  renderRace(snap.race);
   const v = snap.values || {};
   const active = snap.session_active;
 

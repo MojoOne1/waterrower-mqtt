@@ -219,7 +219,10 @@ class Uplink:
             if kind == "ping":
                 await ws.send(json.dumps({"type": "pong"}))
             elif kind == "cmd" and self.on_command:
-                log.info("Uplink command: %s", msg.get("cmd"))
+                # Race state arrives twice a second while one is running;
+                # logging each would drown the log in its own noise.
+                if msg.get("cmd") != "race":
+                    log.info("Uplink command: %s", msg.get("cmd"))
                 try:
                     self.on_command(msg.get("cmd"), msg)
                 except Exception:
