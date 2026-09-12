@@ -103,22 +103,34 @@ function liveCard(athlete, live) {
   return card;
 }
 
-/* Your own session, ended from wherever you are - the tracker's button
-   within reach of the phone on the ergometer. Never anybody else's. */
-function endSessionButton() {
-  const btn = el("button", "end-session", t("endSession"));
-  btn.onclick = async () => {
-    if (!confirm(t("confirmEnd"))) return;
-    btn.disabled = true;
-    try {
-      await api("/api/session/end", { method: "POST" });
-      btn.textContent = t("endSent");
-    } catch (err) {
-      btn.disabled = false;
-      alert(err.message || t("endFailed"));
-    }
+/* Your own session, ended from wherever you are - the tracker's buttons
+   within reach of the phone on the ergometer. Never anybody else's.
+
+   Two of them, the same pair the tracker shows: end leaves the numbers on
+   the monitor to be read while you row out, zero clears them for the next
+   piece. Same words, same order, same result on both screens - so nobody
+   has to remember which one they are looking at. */
+function sessionButtons() {
+  const wrap = el("div", "session-buttons");
+  const act = (cls, label, confirmKey, url, sentKey) => {
+    const btn = el("button", cls, t(label));
+    btn.onclick = async () => {
+      if (!confirm(t(confirmKey))) return;
+      const siblings = wrap.querySelectorAll("button");
+      siblings.forEach((b) => { b.disabled = true; });
+      try {
+        await api(url, { method: "POST" });
+        btn.textContent = t(sentKey);
+      } catch (err) {
+        siblings.forEach((b) => { b.disabled = false; });
+        alert(err.message || t("endFailed"));
+      }
+    };
+    wrap.appendChild(btn);
   };
-  return btn;
+  act("end-session", "endSession", "confirmEnd", "/api/session/end", "endSent");
+  act("zero-monitor", "zeroMonitor", "confirmZero", "/api/session/reset", "endSent");
+  return wrap;
 }
 
 /* Your own session, docked at the bottom of every view for as long as it
@@ -155,7 +167,7 @@ function paintMySession() {
   cell("500 m", fmtSplit(v.speed_ms), "");
   cell("s/min", fmtInt(v.stroke_rate), "");
   cell("W", fmtInt(v.watts), "");
-  bar.appendChild(endSessionButton());
+  bar.appendChild(sessionButtons());
 }
 
 // --- Sessions -------------------------------------------------------------

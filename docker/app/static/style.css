@@ -257,6 +257,7 @@ button.primary:hover { filter: brightness(1.1); color: #fff; }
 
 .session-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 0.7rem; }
 .session-row button { font-size: 0.85rem; white-space: nowrap; }
+.session-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
 .session-line { margin: 0; font-size: 0.85rem; color: var(--ink-2); }
 .session-line strong { color: var(--ink); font-weight: 600; }
 

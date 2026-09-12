@@ -55,7 +55,9 @@ const I18N = {
     allSessions: "Alle Einheiten", chartTrend: "Distanz je Einheit", exportAll: "Alle als Excel",
     trendSum: (n, m, dur) => `${n} Einheiten · ${m} m · ${dur} gesamt`,
     noSamples: "Keine Messpunkte", avg: "Ø",
-    endSession: "Einheit beenden", confirmEnd: "Diese Einheit jetzt beenden und den Monitor zurücksetzen?", endFailed: "Beenden fehlgeschlagen",
+    endSession: "Einheit beenden", confirmEnd: "Diese Einheit jetzt beenden? Der Monitor behält seine Anzeige.",
+    zeroMonitor: "Beenden & nullen", confirmZero: "Einheit beenden und den Monitor auf null setzen?",
+    endFailed: "Beenden fehlgeschlagen",
     raceFree: "Frei rudern", raceGo: "LOS",
     raceHold: "Monitor wird genullt – noch nicht rudern",
     racePlace: (p, n) => `Platz ${p} von ${n}`,
@@ -99,7 +101,9 @@ const I18N = {
     allSessions: "All sessions", chartTrend: "Distance per session", exportAll: "All as Excel",
     trendSum: (n, m, dur) => `${n} sessions · ${m} m · ${dur} total`,
     noSamples: "No samples", avg: "avg",
-    endSession: "End session", confirmEnd: "End this session now and reset the monitor?", endFailed: "Could not end the session",
+    endSession: "End session", confirmEnd: "End your session now? The monitor keeps its display.",
+    zeroMonitor: "End & zero", confirmZero: "End the session and set the monitor back to zero?",
+    endFailed: "Could not end the session",
     raceFree: "Just row", raceGo: "GO",
     raceHold: "Monitor being zeroed - do not row yet",
     racePlace: (p, n) => `Place ${p} of ${n}`,
@@ -290,6 +294,7 @@ function renderLive(snap) {
   $("s4-text").textContent = present == null ? t("s4Unknown") : !present ? t("s4Off") : usb ? t("s4Usb") : t("s4On");
 
   $("end").hidden = !(active && snap.session_id);
+  $("zero").hidden = $("end").hidden;
   renderFooter();
 
   const line = $("session-line");
@@ -302,11 +307,19 @@ function renderLive(snap) {
   }
 }
 
-$("end").onclick = async () => {
-  if (!confirm(t("confirmEnd"))) return;
-  const r = await fetch("/api/session/end", { method: "POST" });
-  if (!r.ok) alert((await r.json()).detail || t("endFailed"));
-};
+/* End leaves the numbers on the monitor to be read while rowing out;
+   zero clears them for the next piece. The arena shows the same pair with
+   the same words, so it does not matter which screen you reach for. */
+function endWith(path, confirmKey) {
+  return async () => {
+    if (!confirm(t(confirmKey))) return;
+    const r = await fetch(path, { method: "POST" });
+    if (!r.ok) alert((await r.json()).detail || t("endFailed"));
+  };
+}
+
+$("end").onclick = endWith("/api/session/end", "confirmEnd");
+$("zero").onclick = endWith("/api/session/reset", "confirmZero");
 
 function connectStream() {
   const es = new EventSource("/api/stream");

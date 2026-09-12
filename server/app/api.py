@@ -450,6 +450,21 @@ async def end_my_session(athlete: dict = Depends(auth.current_athlete)):
     return {"ok": True}
 
 
+@router.post("/api/session/reset")
+async def reset_my_monitor(athlete: dict = Depends(auth.current_athlete)):
+    """Close my session and zero the monitor, from wherever I am standing.
+
+    The other half of the button above: `end` leaves the numbers on the
+    display to be read while rowing out, `reset` clears them so the next
+    piece starts from nothing. Both exist on the tracker too and mean the
+    same there - whichever screen is in front of you does the same thing.
+    """
+    sent = await hub.command(athlete["id"], "reset")
+    if not sent:
+        raise HTTPException(503, "Your tracker is not connected")
+    return {"ok": True}
+
+
 @router.get("/api/live")
 def live(_: dict = Depends(auth.current_athlete)):
     return {

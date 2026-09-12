@@ -206,8 +206,19 @@ async def stream():
 
 @app.post("/api/session/end")
 def end_session():
-    """Asks the ESP to close the running session and reset the monitor;
-    the ESP answers via session/last."""
+    """Asks the ESP to close the running session; the ESP answers via
+    session/last. The monitor keeps its numbers, which is what you want
+    while rowing the piece out - use /api/session/reset to clear them."""
+    if not state.connected:
+        raise HTTPException(503, "Not connected to the broker")
+    ingest.publish("cmd/end_session", "end")
+    return {"ok": True}
+
+
+@app.post("/api/session/reset")
+def reset_monitor():
+    """Close the session and zero the monitor. The firmware reads the
+    payload "reset" as close-and-zero and anything else as close-only."""
     if not state.connected:
         raise HTTPException(503, "Not connected to the broker")
     ingest.publish("cmd/end_session", "reset")

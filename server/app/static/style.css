@@ -209,7 +209,9 @@ form.card label { display: flex; flex-direction: column; gap: 0.25rem; font-size
 .mini .lbl { display: block; font-size: 0.7rem; color: var(--muted); }
 .mini .val { display: block; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
 .cards .empty { grid-column: 1 / -1; }
-button.end-session { margin-top: 0.7rem; width: 100%; }
+button.end-session, button.zero-monitor { margin-top: 0.7rem; width: 100%; }
+.session-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.session-buttons button { flex: 1 1 8rem; }
 .totals, #rec-totals, #compare { overflow-x: auto; }
 
 /* --- Race ------------------------------------------------------------- */
@@ -376,16 +378,17 @@ canvas {
   grid-area: val; font-family: var(--mono); font-weight: 700; font-size: 1.35rem;
   line-height: 1.05; text-align: right; font-variant-numeric: tabular-nums;
 }
-.my-session button.end-session {
-  width: auto; margin: 0; align-self: center; flex: 0 0 auto;
+.my-session .session-buttons { margin: 0; align-self: center; flex: 0 0 auto; }
+.my-session .session-buttons button {
+  width: auto; margin: 0; flex: 0 0 auto;
   background: transparent; color: #e8eae3; border-color: rgba(255, 255, 255, 0.3);
 }
-.my-session button.end-session:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.my-session .session-buttons button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 /* Room so the bar never covers the last row of content. */
 body.has-bar .foot { margin-bottom: 6.5rem; }
 @media (max-width: 560px) {
   .my-session .val { font-size: 1.1rem; }
-  .my-session button.end-session { flex: 1 1 100%; }
+  .my-session .session-buttons { flex: 1 1 100%; }
   body.has-bar .foot { margin-bottom: 9rem; }
 }
 
