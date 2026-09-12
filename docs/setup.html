@@ -339,7 +339,38 @@ esphome run waterrower.yaml</code></pre></div>
           läuft über MQTT.</div>
         <p>Lieber ohne lokales Python? Geht auch im Container:</p>
         <div class="cmd"><pre><code>docker run --rm -it --device=/dev/ttyUSB0 \\
-  -v "$PWD:/config" ghcr.io/esphome/esphome run waterrower.yaml</code></pre></div>`
+  -v "$PWD:/config" ghcr.io/esphome/esphome run waterrower.yaml</code></pre></div>
+        <div class="note">Der erste Flash muss über das Kabel gehen. Danach
+          geht alles über die Luft – und dafür gibt es einen bequemeren Weg,
+          siehe den nächsten Schritt.</div>`
+    },
+    {
+      id: "flash-browser",
+      title: "Spätere Änderungen aus dem Browser",
+      when: (s) => s.ha !== "yes",
+      html: `
+        <p>Ist die Firmware einmal drauf, braucht jede weitere Änderung keine
+          Kommandozeile mehr. In der Compose-Datei den <code>esphome</code>-Block
+          einkommentieren und <code>http://&lt;host&gt;:6052/</code> öffnen: das ist
+          das ESPHome-Dashboard. Es bearbeitet die YAML, übersetzt sie und flasht
+          über WLAN.</p>
+        <p>Die Konfiguration liegt schon bereit. Im Tracker unter <b>Verbindung →
+          Firmware auf dem ESP</b> steht sie zur Auswahl:</p>
+        <ul>
+          <li><b>mitgeliefert</b> – die YAML, mit der dieses Tracker-Image gebaut
+            wurde. Passt zur laufenden Version und braucht kein Netz.</li>
+          <li><b>neueste von GitHub</b> – wird auf Knopfdruck geholt, nie im
+            Hintergrund.</li>
+          <li><b>im Ordner</b> – was schon in <code>esphome-data</code> liegt.</li>
+        </ul>
+        <p>Auswählen, <b>Ins ESPHome-Verzeichnis</b> drücken, die eigene
+          <code>secrets.yaml</code> danebenlegen – beide Container teilen sich den
+          Ordner, das Dashboard sieht die Datei sofort.</p>
+        <div class="note">Der Tracker übersetzt selbst nichts. Dafür bräuchte er
+          eine ganze Toolchain in genau dem Container, der vor allem eines soll:
+          weiter aufzeichnen. Die Karte zeigt außerdem, welche Version der ESP
+          meldet – ein Unterschied ist kein Fehler, erklärt aber ein fehlendes
+          Feld.</div>`
     },
     {
       id: "verkabeln",

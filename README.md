@@ -536,7 +536,7 @@ of pulling it.
 ## Arena (multiplayer)
 
 > **Real-world multiplayer untested.** The arena works end to end –
-> sign-in, uplink, backfill, races, records, badges – and 197 automated
+> sign-in, uplink, backfill, races, records, badges – and 201 automated
 > checks say so, the uplink ones against a real tracker over a real
 > WebSocket. What has never happened is the thing it was built for: two
 > people, two WaterRowers, two houses, one race at the same moment. There
