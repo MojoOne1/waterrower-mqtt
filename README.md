@@ -52,7 +52,7 @@ reachable MQTT broker. Home Assistant is not required for it.
 |---|---|
 | `docker-compose.yml` | The rower's stack: the tracker, with a broker to uncomment if there is none in the house |
 | `mosquitto/config/mosquitto.conf` | The broker's configuration, for the commented-out Mosquitto block |
-| `docker-compose.build.yml` | Develop: builds the image from this folder |
+| `*.build.yml` | Develop: overrides that build the images from the checkout |
 | `Dockerfile`, `requirements.txt` | Image definition (Python 3.12, FastAPI, paho-mqtt) |
 | `app/main.py` | HTTP API, Server-Sent Events stream, static files |
 | `app/mqtt_ingest.py` | MQTT client, live state, session ingestion |
@@ -529,9 +529,13 @@ with no broker - the firmware needs one, Home Assistant it does not.
 Uncomment it, create its password file (the header of either file has the
 command), and leave `MQTT_HOST` at `mosquitto`.
 
-`docker/docker-compose.build.yml` is a third file but not a third shape:
-it is the override that builds the tracker image from the checkout instead
-of pulling it.
+Each of the two has a `.build.yml` beside it – `docker-compose.build.yml`
+at the root, `docker/docker-compose.build.yml` for the tracker alone. They
+are not a third and fourth shape but overrides that build the images from
+a checkout instead of pulling them. They are kept separate so the deployed
+file stays copyable on its own: a `build:` block in it would point at
+directories that are not next to it, and a failed pull would fall back to
+building and die with "path not found" instead of saying what went wrong.
 
 ## Arena (multiplayer)
 
@@ -606,8 +610,12 @@ not stick. Take both back out afterwards: anything able to reach 8090
 directly could claim any address in `X-Forwarded-For` and walk around every
 lockout.
 
-Add `--build` only when you are working on the code: the `build:` blocks in
-the file then build from a checkout instead of pulling the published image.
+Working on the code instead of deploying it? Use the checkout and add the
+override that builds from it:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
 
 Any other reverse proxy works as well – the app listens on `8090`, honours
 `X-Forwarded-*`, and needs nothing but WebSocket pass-through.

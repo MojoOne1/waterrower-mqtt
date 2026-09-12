@@ -61,16 +61,16 @@
 # that it is cached in ./esphome/.esphome.
 #
 # ---------------------------------------------------------------------------
-# Both images are published, so `up -d` pulls them and no checkout is
-# needed. The `build:` blocks below are only for working on the code -
-# `up -d --build` then builds from this checkout instead of pulling.
+# Both images are published, so this file needs nothing beside it but a
+# .env: `up -d` pulls them. Working on the code instead? Use the checkout
+# and add the override that builds from it:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 name: waterrower
 
 services:
   arena:
     image: ghcr.io/mojoone1/waterrower-mqtt/arena:latest
-    build:
-      context: ./server
     container_name: waterrower-arena
     restart: unless-stopped
     # No port published: cloudflared dials out. Anything able to reach 8090
@@ -104,11 +104,6 @@ services:
 
   tracker:
     image: ghcr.io/mojoone1/waterrower-mqtt:latest
-    build:
-      # The root, not ./docker: the image carries esphome/waterrower.yaml so
-      # the Firmware card can offer it without a checkout on the far end.
-      context: .
-      dockerfile: docker/Dockerfile
     container_name: waterrower-tracker
     restart: unless-stopped
     ports:

@@ -1,0 +1,21 @@
+# Builds both images from this checkout instead of pulling them.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#
+# Kept apart from docker-compose.yml on purpose: that file is meant to be
+# copied to a Docker host on its own, and a build: block there would point
+# at ./server and docker/Dockerfile, which are not next to it. With the
+# images published, a stray build context only turns a failed pull into a
+# confusing "path not found".
+
+services:
+  arena:
+    build:
+      context: ./server
+
+  tracker:
+    build:
+      # The root, not ./docker: the image carries esphome/waterrower.yaml,
+      # which sits outside the tracker's own folder.
+      context: .
+      dockerfile: docker/Dockerfile
