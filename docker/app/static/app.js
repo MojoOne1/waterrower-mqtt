@@ -88,6 +88,10 @@ const I18N = {
     fwDownload: "Herunterladen", fwInstall: "Ins ESPHome-Verzeichnis",
     fwUpload: "Eigene YAML …",
     fwShipped: (v) => `mitgeliefert (${v})`,
+    fwGithub: "neueste von GitHub",
+    fwLocal: (v) => `im Ordner (${v})`, fwLocalPlain: "im Ordner",
+    fwFetching: "Wird von GitHub geholt …",
+    fwWroteVersion: (n, v) => `${n} (${v}) liegt jetzt im ESPHome-Verzeichnis.`,
     fwNoDir: (d) => `${d} ist nicht eingebunden – teile den Ordner mit dem ` +
       "ESPHome-Container, dann landet die YAML direkt dort. Herunterladen geht immer.",
     fwWrote: (n) => `${n} liegt jetzt im ESPHome-Verzeichnis.`,
@@ -157,6 +161,10 @@ const I18N = {
     fwDownload: "Download", fwInstall: "Into the ESPHome folder",
     fwUpload: "Your own YAML …",
     fwShipped: (v) => `shipped (${v})`,
+    fwGithub: "latest from GitHub",
+    fwLocal: (v) => `in the folder (${v})`, fwLocalPlain: "in the folder",
+    fwFetching: "Fetching from GitHub …",
+    fwWroteVersion: (n, v) => `${n} (${v}) is now in the ESPHome folder.`,
     fwNoDir: (d) => `${d} is not mounted - share the folder with the ESPHome ` +
       "container and the YAML lands there directly. Downloading always works.",
     fwWrote: (n) => `${n} is now in the ESPHome folder.`,
@@ -813,8 +821,13 @@ function renderConfigs(f) {
   const had = sel.value;
   sel.textContent = "";
   (f.configs || []).forEach((c) => {
-    const o = new Option(c.shipped ? `${c.name} · ${t("fwShipped", f.expected)}` : c.label,
-                         c.source);
+    const where = c.kind === "shipped" ? t("fwShipped", c.version)
+      : c.kind === "github" ? t("fwGithub")
+      : c.version ? t("fwLocal", c.version) : t("fwLocalPlain");
+    const o = new Option(`${c.name} · ${where}`, c.source);
+    // The file name is not the source: "github" and "shipped" are places,
+    // and both land as waterrower.yaml.
+    o.dataset.name = c.name;
     sel.appendChild(o);
   });
   if (had && [...sel.options].some((o) => o.value === had)) sel.value = had;
@@ -841,6 +854,11 @@ function renderConfigs(f) {
 
 async function installYaml(body) {
   const msg = $("fw-yaml-msg");
+  if (body.source === "github") {
+    msg.className = "fw-note";
+    msg.textContent = t("fwFetching");
+    msg.hidden = false;
+  }
   const r = await fetch("/api/firmware/yaml", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -858,13 +876,17 @@ async function installYaml(body) {
     return;
   }
   msg.className = "fw-note ok";
-  msg.textContent = t("fwWrote", body.name);
+  const wrote = data.wrote || {};
+  msg.textContent = wrote.version ? t("fwWroteVersion", body.name, wrote.version)
+                                  : t("fwWrote", body.name);
   renderFirmware(data);
 }
 
 $("fw-install").onclick = () => {
-  const source = $("fw-config").value || "shipped";
-  installYaml({ source, name: source === "shipped" ? "waterrower.yaml" : source });
+  const sel = $("fw-config");
+  const opt = sel.selectedOptions[0];
+  if (!opt) return;
+  installYaml({ source: sel.value, name: opt.dataset.name || "waterrower.yaml" });
 };
 
 $("fw-file").onchange = async (e) => {

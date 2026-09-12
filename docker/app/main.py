@@ -191,6 +191,13 @@ SHIPPED_YAML = _shipped_yaml()
 # that container and a YAML written here shows up there immediately.
 ESPHOME_DIR = Path(os.environ.get("ESPHOME_CONFIG", "/esphome"))
 YAML_MAX = 512 * 1024
+# The firmware YAML as it stands on the default branch. Fetched only when
+# somebody asks for it by name - never in the background, never on a timer.
+# This is code that ends up burned onto hardware, so it is a fixed address
+# that no request can redirect: the browser picks "github", not a URL.
+GITHUB_YAML_URL = os.environ.get(
+    "FIRMWARE_YAML_URL",
+    "https://raw.githubusercontent.com/MojoOne1/waterrower-mqtt/master/esphome/waterrower.yaml")
 
 
 class EsphomeSettings(BaseModel):
@@ -225,18 +232,61 @@ def _safe_yaml_name(name: str) -> str:
     return name
 
 
+def _yaml_version(text: str) -> str:
+    """The `version:` out of the substitutions block, for the label."""
+    for line in text.splitlines()[:40]:
+        line = line.strip()
+        if line.startswith("version:"):
+            return line.split(":", 1)[1].strip().strip(chr(34) + chr(39))
+    return ""
+
+
+def _fetch_github_yaml() -> str:
+    """The current YAML from the project's own repository.
+
+    Deliberately strict about what comes back: HTTPS only, a size cap, and
+    it has to look like an ESPHome configuration. A redirect to a login
+    page or a 404 body is not something to write into the folder another
+    container compiles from.
+    """
+    if not GITHUB_YAML_URL.startswith("https://"):
+        raise HTTPException(400, "The firmware URL must be https")
+    try:
+        with urllib.request.urlopen(GITHUB_YAML_URL, timeout=15) as r:
+            raw = r.read(YAML_MAX + 1)
+    except Exception as e:
+        raise HTTPException(502, f"GitHub did not answer: {type(e).__name__}")
+    if len(raw) > YAML_MAX:
+        raise HTTPException(502, "What came back is too large for a configuration")
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(502, "What came back is not text")
+    if "esphome:" not in text or "substitutions:" not in text:
+        raise HTTPException(502, "What came back is not an ESPHome configuration")
+    return text
+
+
 def _yaml_choices() -> list[dict]:
     """What there is to install: the shipped one, plus whatever is there."""
     out = []
     if SHIPPED_YAML.is_file():
         out.append({"source": "shipped", "name": SHIPPED_YAML.name,
-                    "label": f"{SHIPPED_YAML.name} ({APP_VERSION})", "shipped": True})
+                    "version": APP_VERSION, "kind": "shipped"})
+    # Listed without being fetched: the label promises nothing about the
+    # version because finding that out would mean a request per page load.
+    out.append({"source": "github", "name": "waterrower.yaml",
+                "version": "", "kind": "github"})
     if ESPHOME_DIR.is_dir():
         for f in sorted(ESPHOME_DIR.glob("*.y*ml")):
             if f.name in ("secrets.yaml", "secrets.yml") or not f.is_file():
                 continue
-            out.append({"source": f.name, "name": f.name, "label": f.name,
-                        "shipped": False})
+            try:
+                version = _yaml_version(f.read_text(encoding="utf-8", errors="replace")[:4096])
+            except OSError:
+                version = ""
+            out.append({"source": f.name, "name": f.name,
+                        "version": version, "kind": "local"})
     return out
 
 
@@ -286,11 +336,15 @@ def set_firmware(new: EsphomeSettings):
 @app.get("/api/firmware/yaml")
 def get_yaml(source: str = "shipped"):
     """Hand the YAML over as a download, for when there is no shared folder."""
-    path = SHIPPED_YAML if source == "shipped" else ESPHOME_DIR / _safe_yaml_name(source)
-    if not path.is_file():
-        raise HTTPException(404, "No such configuration")
-    return Response(path.read_text(encoding="utf-8"), media_type="application/yaml",
-                    headers={"Content-Disposition": f'attachment; filename="{path.name}"'})
+    if source == "github":
+        body, name = _fetch_github_yaml(), "waterrower.yaml"
+    else:
+        path = SHIPPED_YAML if source == "shipped" else ESPHOME_DIR / _safe_yaml_name(source)
+        if not path.is_file():
+            raise HTTPException(404, "No such configuration")
+        body, name = path.read_text(encoding="utf-8"), path.name
+    return Response(body, media_type="application/yaml",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 @app.post("/api/firmware/yaml")
@@ -310,6 +364,8 @@ def install_yaml(req: YamlInstall):
         if len(req.content.encode("utf-8")) > YAML_MAX:
             raise HTTPException(413, "That file is too large for a configuration")
         body = req.content
+    elif req.source == "github":
+        body = _fetch_github_yaml()
     elif req.source == "shipped":
         if not SHIPPED_YAML.is_file():
             raise HTTPException(404, "This image ships no firmware YAML")
@@ -326,8 +382,10 @@ def install_yaml(req: YamlInstall):
         target.write_text(body, encoding="utf-8")
     except OSError as e:
         raise HTTPException(500, f"Could not write it: {e}")
-    log.info("Firmware YAML written: %s", target)
-    return firmware()
+    log.info("Firmware YAML written: %s (from %s)", target, req.source)
+    out = firmware()
+    out["wrote"] = {"name": name, "version": _yaml_version(body[:4096])}
+    return out
 
 
 # --- Live ------------------------------------------------------------------

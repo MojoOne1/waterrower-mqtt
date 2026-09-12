@@ -250,14 +250,28 @@ There is a third way that needs no command line at all. Uncomment the
 `http://<host>:6052/`: that is the ESPHome dashboard, which edits the YAML,
 compiles it and flashes over the air.
 
-The configuration is already there. The tracker image carries the YAML this
-release was built against, and the **Firmware** card in the tracker's
-settings panel writes it into the folder the dashboard reads – both
-containers share `./esphome-data`. Pick it in the list, press *Ins
+The configuration is already there. The **Firmware** card in the tracker's
+settings panel writes one into the folder the dashboard reads – both
+containers share `./esphome-data`. Pick one from the list, press *Ins
 ESPHome-Verzeichnis*, add your own `secrets.yaml` next to it in that
 folder, and the dashboard has everything it needs. The same card downloads
 the YAML if you would rather handle the file yourself, and takes one of
 your own if you have changed it.
+
+The list holds up to three kinds:
+
+- **mitgeliefert** – the YAML this tracker image was built with. It matches
+  the running tracker exactly and needs no network. This is the one to take
+  unless you have a reason not to.
+- **neueste von GitHub** – fetched from the default branch when you press
+  the button, never in the background and never on a timer. Use it to pick
+  up a firmware change without waiting for a tracker release. What comes
+  back has to arrive over HTTPS, stay under half a megabyte and look like
+  an ESPHome configuration, or nothing is written: this ends up burned onto
+  hardware, so a redirect to a login page is not something to save. Point
+  `FIRMWARE_YAML_URL` elsewhere if you keep your own fork.
+- **im Ordner** – whatever is already in `./esphome-data`, with the version
+  it declares, so you can reinstall or copy one under another name.
 
 The card also shows which firmware version the ESP reports against the one
 this tracker shipped with. A difference is not an error – running last
