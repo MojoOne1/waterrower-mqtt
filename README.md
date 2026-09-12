@@ -299,7 +299,10 @@ trade for something the dashboard already does well.
   from the S4 (default 5 min, "Session Timeout" in Home
   Assistant – the speed register isn't used for this, it keeps its last
   value after you stop). Each session gets an ID that's a local timestamp
-  (SNTP).
+  (SNTP), in the zone named by the `timezone:` substitution at the top of
+  the YAML. Name it explicitly: left out, ESPHome quietly takes the
+  timezone of whatever machine compiled the firmware, and a container or a
+  CI runner is UTC – every workout then lands two hours out in summer.
 - Shows 0 for speed, stroke rate and watts as soon as the S4 reports no
   rowing (its `PING`) – the monitor itself keeps displaying the last
   stroke's values.
@@ -411,7 +414,9 @@ compose file. The database lives at `./data/waterrower.db`.
 
 Set `TZ` in the compose file to the ESP's time zone – session IDs are local
 timestamps, and the tracker uses `TZ` to turn them into the start times
-shown in the UI.
+shown in the UI. The firmware's `timezone:` substitution has to say the
+same thing: the two read the same timestamps, so a mismatch shifts every
+workout by the difference between them.
 
 ### Without Home Assistant
 

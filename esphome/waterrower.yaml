@@ -2,6 +2,9 @@
 # tagged v<version> in git, which is how a firmware maps to a commit.
 substitutions:
   version: "2.0.0"
+  # Your zone, matching the tracker container's TZ. Both read the same
+  # timestamps, so they have to agree.
+  timezone: "Europe/Berlin"
 
 esphome:
   name: esphome-waterrower
@@ -82,6 +85,14 @@ mqtt:
 time:
   - platform: sntp
     id: sntp_time
+    # Spelled out on purpose. Left off, ESPHome takes the timezone of
+    # whatever machine compiled the firmware - a container or a CI runner
+    # is UTC, and the session IDs below are the ESP's local time, so every
+    # workout lands two hours out in summer and one in winter.
+    #
+    # It has to match the tracker container's TZ: the tracker reads these
+    # IDs as its own local time.
+    timezone: ${timezone}
 
 usb_uart:
   - type: cdc_acm
