@@ -243,6 +243,32 @@ And if you want no toolchain at all: the web flasher at
 is the way to put a finished firmware on the *second* and *third* machine,
 not the way to build it.
 
+#### From the browser, next to the tracker
+
+There is a third way that needs no command line at all. Uncomment the
+`esphome` block in whichever compose file you deployed and open
+`http://<host>:6052/`: that is the ESPHome dashboard, which edits the YAML,
+compiles it and flashes over the air.
+
+The configuration is already there. The tracker image carries the YAML this
+release was built against, and the **Firmware** card in the tracker's
+settings panel writes it into the folder the dashboard reads – both
+containers share `./esphome-data`. Pick it in the list, press *Ins
+ESPHome-Verzeichnis*, add your own `secrets.yaml` next to it in that
+folder, and the dashboard has everything it needs. The same card downloads
+the YAML if you would rather handle the file yourself, and takes one of
+your own if you have changed it.
+
+The card also shows which firmware version the ESP reports against the one
+this tracker shipped with. A difference is not an error – running last
+month's firmware on purpose is normal – but it explains a field that is
+missing.
+
+The tracker compiles nothing itself, and that is deliberate: it would need
+PlatformIO and an ESP32 toolchain in the one container whose job is to keep
+recording, and a build competing with the MQTT thread for memory is a bad
+trade for something the dashboard already does well.
+
 ### What the firmware does
 
 - Keeps the USB link up: when the S4 appears it sends the `USB` command
@@ -452,6 +478,8 @@ For your own analysis:
 | `GET /api/stream` | Live updates as Server-Sent Events |
 | `POST /api/session/end` | Close the running session, monitor keeps its display (publishes `cmd/end_session` = `end`) |
 | `POST /api/session/reset` | Close it and zero the monitor (publishes `cmd/end_session` = `reset`) |
+| `GET` / `POST /api/firmware` | Which firmware the ESP runs, the configurations on offer, and the dashboard address |
+| `GET` / `POST /api/firmware/yaml` | Download a configuration, or write one into the ESPHome folder |
 | `GET /api/sessions` | List of all sessions |
 | `GET /api/sessions/{id}` | Session with all samples |
 | `GET /api/sessions/{id}/export.csv` | Samples as CSV |

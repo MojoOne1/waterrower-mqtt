@@ -61,6 +61,41 @@
       <button type="submit" class="primary" data-i18n="btnSave"></button>
     </div>
   </form>
+
+  <form id="fw-form">
+    <h2 data-i18n="fwTitle"></h2>
+    <dl class="fw-facts">
+      <dt data-i18n="fwRunning"></dt><dd id="fw-running">–</dd>
+      <dt data-i18n="fwExpected"></dt><dd id="fw-expected">–</dd>
+    </dl>
+    <p class="fw-note" id="fw-note" hidden></p>
+
+    <div class="fw-yaml">
+      <label class="fw-pick">
+        <span data-i18n="fwConfig"></span>
+        <select id="fw-config"></select>
+      </label>
+      <div class="fw-yaml-acts">
+        <a id="fw-download" class="button-link" data-i18n="fwDownload"></a>
+        <button type="button" id="fw-install" data-i18n="fwInstall"></button>
+        <label class="button-link fw-upload">
+          <span data-i18n="fwUpload"></span>
+          <input type="file" id="fw-file" accept=".yaml,.yml" hidden>
+        </label>
+      </div>
+      <p class="fw-note" id="fw-yaml-msg" hidden></p>
+    </div>
+
+    <div class="fields fw-fields">
+      <label><span data-i18n="fwUrl"></span> <input name="esphome_url" data-i18n-placeholder="fwUrlPh"></label>
+    </div>
+    <p class="hint" data-i18n-html="fwHint"></p>
+    <div class="form-foot">
+      <span class="form-msg" id="fw-msg"></span>
+      <a id="fw-open" class="button-link" target="_blank" rel="noopener" data-i18n="fwOpen" hidden></a>
+      <button type="submit" class="primary" data-i18n="btnSave"></button>
+    </div>
+  </form>
 </section>
 
 <div class="race-strip" id="race-strip" hidden></div>

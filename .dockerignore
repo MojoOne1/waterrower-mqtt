@@ -1,0 +1,10 @@
+# The tracker image builds from the repository root so it can carry
+# esphome/waterrower.yaml. Everything not needed for that stays out.
+.git/
+.github/
+docs/
+server/
+homeassistant/
+*.zip
+**/data/
+**/__pycache__/

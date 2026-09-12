@@ -1,5 +1,8 @@
 esphome/secrets.yaml
 esphome/.esphome/
+# What the optional ESPHome dashboard container works in: installed
+# configs, secrets and a build cache that runs to hundreds of MB.
+esphome-data/
 docker/data/
 docker/mosquitto/data/
 docker/mosquitto/config/passwd

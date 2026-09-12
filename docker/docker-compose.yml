@@ -30,6 +30,26 @@
 #
 # Put that password in a .env next to this file as MQTT_PASSWORD, and the
 # same user and password into the ESP's secrets.yaml.
+#
+# ---------------------------------------------------------------------------
+# Changing the firmware without Home Assistant
+# ---------------------------------------------------------------------------
+# Uncomment the `esphome` block at the bottom and open http://<host>:6052/.
+# That is the ESPHome dashboard: it edits the YAML in the browser, compiles
+# it and flashes the ESP over the air - the whole job, from the people who
+# wrote the firmware format. The YAML is already there: the tracker ships
+# the one this release was built against, and its Firmware card writes it
+# into ./esphome-data for you - both containers share that folder. Add your
+# own secrets.yaml beside it, then Install -> Wirelessly.
+#
+# The tracker does not compile anything itself on purpose: that needs
+# PlatformIO and an ESP32 toolchain, and this container's one job is to
+# keep recording. Paste the dashboard's address into the tracker's Firmware
+# card and it links straight there.
+#
+# The first build downloads the toolchain and takes a few minutes; after
+# that it is cached in ./esphome/.esphome. Shut the container down again
+# when you are done if you would rather not leave it running.
 name: waterrower
 
 services:
@@ -57,6 +77,9 @@ services:
       # ARENA_URL: https://arena.example.com
     volumes:
       - ./data:/data
+      # Shared with the esphome container below, if you uncomment it:
+      # the Firmware card writes the YAML here and the dashboard sees it.
+      - ./esphome-data:/esphome
 
   # --- Uncomment for a broker of your own ----------------------------------
   # mosquitto:
@@ -70,3 +93,22 @@ services:
   #   volumes:
   #     - ./mosquitto/config:/mosquitto/config
   #     - ./mosquitto/data:/mosquitto/data
+
+  # --- Uncomment to edit and flash the firmware from a browser --------------
+  # esphome:
+  #   image: ghcr.io/esphome/esphome:latest
+  #   container_name: waterrower-esphome
+  #   restart: unless-stopped
+  #   ports:
+  #     - "6052:6052"
+  #   environment:
+  #     TZ: Europe/Berlin
+  #   volumes:
+  #     # Your waterrower.yaml and secrets.yaml live here, and so does the
+  #     # build cache - losing it only costs the next build some minutes.
+  #     - ./esphome-data:/config
+  #   # OTA finds the ESP by mDNS, which does not cross the bridge network.
+  #   # Host networking is the simple answer on Linux; on Docker Desktop it
+  #   # is not, so there put the device's IP in the YAML as `use_address`
+  #   # and drop this line.
+  #   network_mode: host

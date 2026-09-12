@@ -39,6 +39,7 @@ const I18N = {
     phHost: "10.0.0.5 oder broker.local", phOptional: "optional",
     settingsHint: "Der Präfix muss zu <code>topic_prefix</code> in der ESPHome-Konfiguration passen.",
     btnConnect: "Verbinden", formConnecting: "Verbinde …", formConnected: "Verbunden",
+    formSaved: "Gespeichert",
     saveFailed: "Speichern fehlgeschlagen", noConnection: "Keine Verbindung – Adresse, Port und Login prüfen",
     waiting: "Warten auf Ruderschlag …",
     waitingTotal: (m) => `Warten auf Ruderschlag. Gesamt gerudert: ${m} m`,
@@ -73,6 +74,28 @@ const I18N = {
     btnSave: "Speichern",
     arenaOn: (who) => `Arena: ${who || "verbunden"}`,
     arenaOff: "Arena getrennt", arenaIdle: "Arena aus",
+    fwTitle: "Firmware auf dem ESP",
+    fwRunning: "Läuft gerade", fwExpected: "Zu diesem Tracker gehört",
+    fwUrl: "ESPHome-Dashboard", fwUrlPh: "http://10.0.0.5:6052",
+    fwOpen: "ESPHome öffnen",
+    fwUnknown: "unbekannt – erst wenn MQTT fließt",
+    fwMatch: "Passt zusammen.",
+    fwDiffer: "Andere Version als dieser Tracker. Das ist erlaubt, kann aber " +
+      "erklären, warum ein neues Feld fehlt.",
+    fwUnreachable: "Vom Tracker aus nicht erreichbar. Der Link geht trotzdem – " +
+      "dein Browser kommt oft dorthin, wo dieser Container nicht hinkommt.",
+    fwConfig: "Konfiguration",
+    fwDownload: "Herunterladen", fwInstall: "Ins ESPHome-Verzeichnis",
+    fwUpload: "Eigene YAML …",
+    fwShipped: (v) => `mitgeliefert (${v})`,
+    fwNoDir: (d) => `${d} ist nicht eingebunden – teile den Ordner mit dem ` +
+      "ESPHome-Container, dann landet die YAML direkt dort. Herunterladen geht immer.",
+    fwWrote: (n) => `${n} liegt jetzt im ESPHome-Verzeichnis.`,
+    fwExists: (n) => `${n} ist schon da. Überschreiben?`,
+    fwHint: "Kompiliert und geflasht wird im ESPHome-Dashboard: YAML bearbeiten, " +
+      "<em>Install → Wirelessly</em>, fertig. Der Tracker baut nichts selbst – dafür " +
+      "bräuchte er eine ganze Toolchain, und er soll vor allem eines: weiter aufzeichnen. " +
+      "Den Container gibt es auskommentiert in der Compose-Datei.",
   },
   en: {
     locale: "en-GB",
@@ -85,6 +108,7 @@ const I18N = {
     phHost: "10.0.0.5 or broker.local", phOptional: "optional",
     settingsHint: "The prefix must match <code>topic_prefix</code> in the ESPHome configuration.",
     btnConnect: "Connect", formConnecting: "Connecting …", formConnected: "Connected",
+    formSaved: "Saved",
     saveFailed: "Saving failed", noConnection: "No connection – check address, port and login",
     waiting: "Waiting for a stroke …",
     waitingTotal: (m) => `Waiting for a stroke. Total rowed: ${m} m`,
@@ -119,6 +143,28 @@ const I18N = {
     btnSave: "Save",
     arenaOn: (who) => `Arena: ${who || "connected"}`,
     arenaOff: "Arena disconnected", arenaIdle: "Arena off",
+    fwTitle: "Firmware on the ESP",
+    fwRunning: "Running now", fwExpected: "Ships with this tracker",
+    fwUrl: "ESPHome dashboard", fwUrlPh: "http://10.0.0.5:6052",
+    fwOpen: "Open ESPHome",
+    fwUnknown: "unknown - only once MQTT is flowing",
+    fwMatch: "These match.",
+    fwDiffer: "A different version from this tracker. That is allowed, but it " +
+      "can explain a missing field.",
+    fwUnreachable: "Not reachable from the tracker. The link still works - your " +
+      "browser often gets where this container cannot.",
+    fwConfig: "Configuration",
+    fwDownload: "Download", fwInstall: "Into the ESPHome folder",
+    fwUpload: "Your own YAML …",
+    fwShipped: (v) => `shipped (${v})`,
+    fwNoDir: (d) => `${d} is not mounted - share the folder with the ESPHome ` +
+      "container and the YAML lands there directly. Downloading always works.",
+    fwWrote: (n) => `${n} is now in the ESPHome folder.`,
+    fwExists: (n) => `${n} is already there. Overwrite?`,
+    fwHint: "Compiling and flashing happen in the ESPHome dashboard: edit the YAML, " +
+      "<em>Install → Wirelessly</em>, done. The tracker builds nothing itself - that " +
+      "would need a whole toolchain, and its one job is to keep recording. The " +
+      "container is in the compose file, commented out.",
   },
 };
 
@@ -729,6 +775,131 @@ arenaForm.onsubmit = async (e) => {
   arenaMsg.textContent = s.connected ? t("formConnected") : (s.error || t("noConnection"));
 };
 
+// --- Firmware --------------------------------------------------------------
+
+const fwForm = $("fw-form"), fwMsg = $("fw-msg");
+
+function renderFirmware(f) {
+  $("fw-running").textContent = f.running || t("fwUnknown");
+  $("fw-expected").textContent = f.expected || "–";
+  const open = $("fw-open");
+  open.hidden = !f.url;
+  if (f.url) open.href = f.url;
+
+  /* One line, and only when it says something. A match is worth confirming
+     once; a mismatch is not an error, because running last month's firmware
+     on purpose is a normal thing to do. */
+  const note = $("fw-note");
+  let text = "", cls = "fw-note";
+  if (f.url && f.reachable === false) {
+    text = t("fwUnreachable"); cls += " warn";
+  } else if (f.running && f.expected && f.running !== "dev" && f.expected !== "dev") {
+    const same = f.running === f.expected;
+    text = same ? t("fwMatch") : t("fwDiffer");
+    cls += same ? " ok" : " warn";
+  }
+  note.className = cls;
+  note.textContent = text;
+  note.hidden = !text;
+
+  renderConfigs(f);
+}
+
+/* The picker: whatever the tracker can offer, with the one that shipped
+   with this release first. It is the one that matches - no checkout, no
+   copying a file out of GitHub by hand. */
+function renderConfigs(f) {
+  const sel = $("fw-config");
+  const had = sel.value;
+  sel.textContent = "";
+  (f.configs || []).forEach((c) => {
+    const o = new Option(c.shipped ? `${c.name} · ${t("fwShipped", f.expected)}` : c.label,
+                         c.source);
+    sel.appendChild(o);
+  });
+  if (had && [...sel.options].some((o) => o.value === had)) sel.value = had;
+  sel.disabled = !sel.options.length;
+
+  const dl = $("fw-download");
+  dl.href = `/api/firmware/yaml?source=${encodeURIComponent(sel.value || "shipped")}`;
+  sel.onchange = () => {
+    dl.href = `/api/firmware/yaml?source=${encodeURIComponent(sel.value)}`;
+  };
+
+  /* Writing needs the folder shared with the other container. Say so once,
+     here, instead of letting the button fail with a shrug. */
+  $("fw-install").disabled = !f.config_dir_ok;
+  const msg = $("fw-yaml-msg");
+  if (!f.config_dir_ok) {
+    msg.className = "fw-note warn";
+    msg.textContent = t("fwNoDir", f.config_dir || "/esphome");
+    msg.hidden = false;
+  } else if (!msg.dataset.sticky) {
+    msg.hidden = true;
+  }
+}
+
+async function installYaml(body) {
+  const msg = $("fw-yaml-msg");
+  const r = await fetch("/api/firmware/yaml", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (r.status === 409 && !body.overwrite) {
+    if (confirm(t("fwExists", body.name))) return installYaml({ ...body, overwrite: true });
+    return;
+  }
+  msg.dataset.sticky = "1";
+  msg.hidden = false;
+  if (!r.ok) {
+    msg.className = "fw-note warn";
+    msg.textContent = data.detail || t("saveFailed");
+    return;
+  }
+  msg.className = "fw-note ok";
+  msg.textContent = t("fwWrote", body.name);
+  renderFirmware(data);
+}
+
+$("fw-install").onclick = () => {
+  const source = $("fw-config").value || "shipped";
+  installYaml({ source, name: source === "shipped" ? "waterrower.yaml" : source });
+};
+
+$("fw-file").onchange = async (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const content = await file.text();
+  e.target.value = "";                 // so the same file can be picked again
+  await installYaml({ source: "upload", name: file.name, content });
+};
+
+async function loadFirmware() {
+  try {
+    const f = await (await fetch("/api/firmware")).json();
+    fwForm.elements.esphome_url.value = f.url || "";
+    renderFirmware(f);
+  } catch {}
+}
+
+fwForm.onsubmit = async (e) => {
+  e.preventDefault();
+  fwMsg.className = "form-msg"; fwMsg.textContent = "";
+  const r = await fetch("/api/firmware", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ esphome_url: fwForm.elements.esphome_url.value.trim() }),
+  });
+  if (!r.ok) {
+    fwMsg.textContent = t("saveFailed");
+    fwMsg.className = "form-msg err";
+    return;
+  }
+  renderFirmware(await r.json());
+  fwMsg.className = "form-msg ok";
+  fwMsg.textContent = t("formSaved");
+};
+
 /* Status only - never the input fields, or it would overwrite what is being
    typed while the panel is open. */
 async function pollArena() {
@@ -765,4 +936,5 @@ connectStream();
 loadSessions();
 loadSettings();
 loadArena();
+loadFirmware();
 loadVersion();

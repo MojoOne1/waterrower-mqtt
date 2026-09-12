@@ -26,10 +26,14 @@ jobs:
           # The tracker keeps the repository's own image name, so existing
           # deployments carry on pulling the same tag.
           - component: tracker
-            context: ./docker
+            # The root, not ./docker: the image carries the firmware YAML
+            # from esphome/, which sits outside the tracker's own folder.
+            context: .
+            file: ./docker/Dockerfile
             suffix: ""
           - component: arena
             context: ./server
+            file: ./server/Dockerfile
             suffix: /arena
     name: ${{ matrix.component }}
     steps:
@@ -71,6 +75,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           platforms: linux/amd64,linux/arm64
           push: true
           build-args: |

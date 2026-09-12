@@ -6,6 +6,8 @@ import io
 import json
 import logging
 import os
+import urllib.error
+import urllib.request
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -20,6 +22,7 @@ from mqtt_ingest import LiveState, MqttIngest
 from uplink import Uplink
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+log = logging.getLogger("tracker")
 
 APP_VERSION = os.environ.get("APP_VERSION", "dev")
 GIT_COMMIT = os.environ.get("GIT_COMMIT", "unknown")
@@ -39,6 +42,7 @@ def load_settings() -> dict:
         "arena_url": os.environ.get("ARENA_URL", ""),
         "arena_token": os.environ.get("ARENA_TOKEN", ""),
         "arena_enabled": os.environ.get("ARENA_URL", "") != "",
+        "esphome_url": os.environ.get("ESPHOME_URL", ""),
     }
     if SETTINGS_PATH.exists():
         try:
@@ -162,6 +166,168 @@ def set_arena(new: ArenaSettings):
         raise HTTPException(400, "Arena needs both an address and a token")
     link.configure(save_settings(s))
     return link.status()
+
+
+# --- Firmware --------------------------------------------------------------
+
+def _shipped_yaml() -> Path:
+    """The firmware YAML this build was made with.
+
+    In the image the Dockerfile puts it at /app/firmware. Run straight from
+    a checkout and it is still in esphome/ where it is edited, two levels
+    up from here - so development sees the same card the container does.
+    """
+    env = os.environ.get("FIRMWARE_YAML")
+    if env:
+        return Path(env)
+    packaged = Path("/app/firmware/waterrower.yaml")
+    if packaged.is_file():
+        return packaged
+    return Path(__file__).resolve().parents[2] / "esphome" / "waterrower.yaml"
+
+
+SHIPPED_YAML = _shipped_yaml()
+# Where the ESPHome dashboard keeps its configs. Share the same folder with
+# that container and a YAML written here shows up there immediately.
+ESPHOME_DIR = Path(os.environ.get("ESPHOME_CONFIG", "/esphome"))
+YAML_MAX = 512 * 1024
+
+
+class EsphomeSettings(BaseModel):
+    esphome_url: str = ""
+
+
+class YamlInstall(BaseModel):
+    source: str = "shipped"      # "shipped", or the name of a file already there
+    name: str = "waterrower.yaml"
+    content: str | None = None   # set when the browser hands over its own file
+    overwrite: bool = False
+
+
+def _safe_yaml_name(name: str) -> str:
+    """A bare file name ending in .yaml, and nothing clever.
+
+    Everything this writes lands in one directory that is shared with
+    another container, so a name is allowed to be a name and nothing else:
+    no separators, no walking up, no overwriting the secrets file the
+    dashboard needs.
+    """
+    name = name.strip()
+    # Refuse anything with a path in it rather than quietly writing the
+    # stripped remainder: silently turning ../../x.yaml into x.yaml gives
+    # back a file nobody asked for under a name nobody typed.
+    if name != Path(name).name or "/" in name or chr(92) in name or ".." in name:
+        raise HTTPException(400, "A plain file name, without a path")
+    if not name.endswith((".yaml", ".yml")) or name.startswith("."):
+        raise HTTPException(400, "A YAML file name is required")
+    if name in ("secrets.yaml", "secrets.yml"):
+        raise HTTPException(400, "secrets.yaml is the dashboard's own - pick another name")
+    return name
+
+
+def _yaml_choices() -> list[dict]:
+    """What there is to install: the shipped one, plus whatever is there."""
+    out = []
+    if SHIPPED_YAML.is_file():
+        out.append({"source": "shipped", "name": SHIPPED_YAML.name,
+                    "label": f"{SHIPPED_YAML.name} ({APP_VERSION})", "shipped": True})
+    if ESPHOME_DIR.is_dir():
+        for f in sorted(ESPHOME_DIR.glob("*.y*ml")):
+            if f.name in ("secrets.yaml", "secrets.yml") or not f.is_file():
+                continue
+            out.append({"source": f.name, "name": f.name, "label": f.name,
+                        "shipped": False})
+    return out
+
+
+@app.get("/api/firmware")
+def firmware():
+    """What the ESP is running, and where to go to change it.
+
+    The tracker does not compile or flash anything itself - that needs
+    PlatformIO and a toolchain, and this container's job is to never stop
+    recording. The ESPHome dashboard does the whole job already and is
+    maintained by the people who wrote the firmware format, so this points
+    at it and gets out of the way.
+
+    "reachable" is from in here, not from your browser: the dashboard is
+    usually published on the host, and a browser on the LAN may well get
+    there when this container cannot. The link is shown either way.
+    """
+    url = (load_settings().get("esphome_url") or "").strip().rstrip("/")
+    reachable = None
+    if url:
+        try:
+            # urllib, not a new dependency: one HEAD-ish GET with a short
+            # timeout is not worth putting another package in the image.
+            with urllib.request.urlopen(url, timeout=2) as r:
+                reachable = r.status < 500
+        except urllib.error.HTTPError as e:
+            reachable = e.code < 500       # it answered, so it is there
+        except Exception:
+            reachable = False
+    return {
+        "running": state.values.get("firmware_version") or "",
+        "expected": APP_VERSION,
+        "url": url,
+        "reachable": reachable,
+        "configs": _yaml_choices(),
+        "config_dir": str(ESPHOME_DIR),
+        "config_dir_ok": ESPHOME_DIR.is_dir() and os.access(ESPHOME_DIR, os.W_OK),
+    }
+
+
+@app.post("/api/firmware")
+def set_firmware(new: EsphomeSettings):
+    save_settings({"esphome_url": new.esphome_url.strip().rstrip("/")})
+    return firmware()
+
+
+@app.get("/api/firmware/yaml")
+def get_yaml(source: str = "shipped"):
+    """Hand the YAML over as a download, for when there is no shared folder."""
+    path = SHIPPED_YAML if source == "shipped" else ESPHOME_DIR / _safe_yaml_name(source)
+    if not path.is_file():
+        raise HTTPException(404, "No such configuration")
+    return Response(path.read_text(encoding="utf-8"), media_type="application/yaml",
+                    headers={"Content-Disposition": f'attachment; filename="{path.name}"'})
+
+
+@app.post("/api/firmware/yaml")
+def install_yaml(req: YamlInstall):
+    """Put a YAML where the ESPHome dashboard will find it.
+
+    Either the one shipped with this release, one already in the folder
+    under a new name, or one the browser read off disk and sent along.
+    Nothing is flashed here - the dashboard does that, and does it well.
+    """
+    if not ESPHOME_DIR.is_dir():
+        raise HTTPException(409, f"{ESPHOME_DIR} is not mounted - share it with the ESPHome container")
+    name = _safe_yaml_name(req.name)
+    target = ESPHOME_DIR / name
+
+    if req.content is not None:
+        if len(req.content.encode("utf-8")) > YAML_MAX:
+            raise HTTPException(413, "That file is too large for a configuration")
+        body = req.content
+    elif req.source == "shipped":
+        if not SHIPPED_YAML.is_file():
+            raise HTTPException(404, "This image ships no firmware YAML")
+        body = SHIPPED_YAML.read_text(encoding="utf-8")
+    else:
+        src = ESPHOME_DIR / _safe_yaml_name(req.source)
+        if not src.is_file():
+            raise HTTPException(404, "No such configuration")
+        body = src.read_text(encoding="utf-8")
+
+    if target.exists() and not req.overwrite:
+        raise HTTPException(409, f"{name} is already there")
+    try:
+        target.write_text(body, encoding="utf-8")
+    except OSError as e:
+        raise HTTPException(500, f"Could not write it: {e}")
+    log.info("Firmware YAML written: %s", target)
+    return firmware()
 
 
 # --- Live ------------------------------------------------------------------
