@@ -149,6 +149,21 @@ class Database:
         return [round(sum(vals[int(i * step):int((i + 1) * step)]) / max(1, int((i + 1) * step) - int(i * step)), 2)
                 for i in range(points)]
 
+    def sessions_for_uplink(self) -> list[dict]:
+        """Sessions without their sparkline - the uplink only needs the facts."""
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT * FROM sessions ORDER BY started_at DESC"
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def session_start(self, session_id: str) -> float | None:
+        with self._conn() as c:
+            r = c.execute(
+                "SELECT started_at FROM sessions WHERE session_id = ?", (session_id,)
+            ).fetchone()
+        return r[0] if r else None
+
     def get_session(self, session_id: str) -> dict | None:
         with self._conn() as c:
             row = c.execute(

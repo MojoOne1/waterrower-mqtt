@@ -1,0 +1,163 @@
+# Row together: the arena, the tunnel that publishes it, and a tracker.
+#
+#   docker compose up -d --build
+#
+# This is the file for the one person who provides the arena. Everybody
+# else rows - alone or into this arena - and wants docker/docker-compose.yml
+# instead; joining is a setting in their tracker, not a deployment.
+#
+# The tracker is in here on purpose, as its own container. It is what keeps
+# recording while the arena is down for an update, it holds the second copy
+# of your rowing, its web UI works with the internet out, and it does the
+# Excel export. Folding it into the arena would cost all four to save a
+# container.
+#
+# ---------------------------------------------------------------------------
+# Before the first start
+# ---------------------------------------------------------------------------
+# A .env next to this file:
+#
+#   ARENA_ADMIN_PASSWORD=something-long
+#   MQTT_HOST=10.0.0.5              your broker, or `mosquitto` (see below)
+#   MQTT_PASSWORD=whatever-it-wants
+#   TUNNEL_TOKEN=eyJhIjoi…          from Cloudflare Zero Trust
+#
+# In the tunnel's Public Hostname tab, point your hostname at
+# http://arena:8090 - the container name, they share this network.
+#
+# Then: tracker on :8080, arena on your hostname. In the arena create
+# yourself an athlete (the admin account administers and does not row), mint
+# a token under Konto -> Tracker-Verbindung, and paste it into the tracker
+# under Arena along with the arena's address.
+#
+# ---------------------------------------------------------------------------
+# No MQTT broker in the house?
+# ---------------------------------------------------------------------------
+# Uncomment the `mosquitto` block at the bottom and set MQTT_HOST=mosquitto.
+# Mosquitto 2 admits nobody until told, so create its password file first:
+#
+#   mkdir -p docker/mosquitto/config docker/mosquitto/data
+#   docker run --rm -v "$PWD/docker/mosquitto/config:/mosquitto/config" eclipse-mosquitto:2 \
+#     mosquitto_passwd -c -b /mosquitto/config/passwd waterrower DEIN-PASSWORT
+#
+# ---------------------------------------------------------------------------
+# Changing the firmware without Home Assistant
+# ---------------------------------------------------------------------------
+# Uncomment the `esphome` block at the bottom and open http://<host>:6052/.
+# That is the ESPHome dashboard: it edits the YAML in the browser, compiles
+# it and flashes the ESP over the air - the whole job, from the people who
+# wrote the firmware format. The YAML is already there: the tracker ships
+# the one this release was built against, and its Firmware card writes it
+# into ./esphome-data for you - both containers share that folder, and the
+# repository's own esphome/ stays clean of build caches. Add your own
+# secrets.yaml beside it, then Install -> Wirelessly.
+#
+# Neither the tracker nor the arena compiles anything itself on purpose:
+# that needs PlatformIO and an ESP32 toolchain, and the tracker's one job is
+# to keep recording. Paste the dashboard's address into the tracker's
+# Firmware card and it links straight there.
+#
+# The first build downloads the toolchain and takes a few minutes; after
+# that it is cached in ./esphome/.esphome.
+#
+# ---------------------------------------------------------------------------
+# The --build is only needed until this lands on master; after that the
+# workflow publishes both images and plain `up -d` pulls them.
+name: waterrower
+
+services:
+  arena:
+    image: ghcr.io/mojoone1/waterrower-mqtt/arena:latest
+    build:
+      context: ./server
+    container_name: waterrower-arena
+    restart: unless-stopped
+    # No port published: cloudflared dials out. Anything able to reach 8090
+    # directly could claim any address in X-Forwarded-For and walk around
+    # every lockout. Add a `ports:` block here only to test without the
+    # tunnel, and set ARENA_SECURE_COOKIES=0 while you do, because a Secure
+    # cookie is dropped over plain http and the sign-in would not stick.
+    environment:
+      TZ: Europe/Berlin
+      ARENA_ADMIN_USER: admin
+      ARENA_ADMIN_NAME: Admin
+      ARENA_ADMIN_PASSWORD: "${ARENA_ADMIN_PASSWORD:?put ARENA_ADMIN_PASSWORD in .env}"
+      # Lost that password? Put a new one above, set this to 1 and restart:
+      # the account keeps its history and is signed out everywhere. Back to 0
+      # afterwards, or every restart puts that password back.
+      ARENA_ADMIN_RESET: "${ARENA_ADMIN_RESET:-0}"
+      # Cloudflare terminates the TLS, so the cookie stays Secure.
+      ARENA_SECURE_COOKIES: "${ARENA_SECURE_COOKIES:-1}"
+    volumes:
+      - ./server/data:/data
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: waterrower-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: "${TUNNEL_TOKEN:?put TUNNEL_TOKEN in .env}"
+    depends_on:
+      - arena
+
+  tracker:
+    image: ghcr.io/mojoone1/waterrower-mqtt:latest
+    build:
+      # The root, not ./docker: the image carries esphome/waterrower.yaml so
+      # the Firmware card can offer it without a checkout on the far end.
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: waterrower-tracker
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Must match the ESP's time zone: session IDs are local timestamps.
+      TZ: Europe/Berlin
+      MQTT_HOST: "${MQTT_HOST:-mosquitto}"
+      MQTT_PORT: "${MQTT_PORT:-1883}"
+      MQTT_USERNAME: "${MQTT_USERNAME:-waterrower}"
+      MQTT_PASSWORD: "${MQTT_PASSWORD:-}"
+      MQTT_PREFIX: waterrower
+      # The address could be pre-filled, but the token cannot - it is minted
+      # in the arena and pasted across. Setting only the address switches the
+      # uplink on with nothing to sign in with, so both are left to the form.
+      # ARENA_URL: http://arena:8090
+    volumes:
+      - ./docker/data:/data
+      # Shared with the esphome container below, if you uncomment it:
+      # the Firmware card writes the YAML here and the dashboard sees it.
+      - ./esphome-data:/esphome
+
+  # --- Uncomment for a broker of your own ----------------------------------
+  # mosquitto:
+  #   image: eclipse-mosquitto:2
+  #   container_name: waterrower-mosquitto
+  #   restart: unless-stopped
+  #   ports:
+  #     # The ESP is on the network, not in this stack. Keep it on the LAN -
+  #     # do not forward it from the router.
+  #     - "1883:1883"
+  #   volumes:
+  #     - ./docker/mosquitto/config:/mosquitto/config
+  #     - ./docker/mosquitto/data:/mosquitto/data
+
+  # --- Uncomment to edit and flash the firmware from a browser --------------
+  # esphome:
+  #   image: ghcr.io/esphome/esphome:latest
+  #   container_name: waterrower-esphome
+  #   restart: unless-stopped
+  #   ports:
+  #     - "6052:6052"
+  #   environment:
+  #     TZ: Europe/Berlin
+  #   volumes:
+  #     # Your waterrower.yaml and secrets.yaml live here, and so does the
+  #     # build cache - losing it only costs the next build some minutes.
+  #     - ./esphome-data:/config
+  #   # OTA finds the ESP by mDNS, which does not cross the bridge network.
+  #   # Host networking is the simple answer on Linux; on Docker Desktop it
+  #   # is not, so there put the device's IP in the YAML as `use_address`
+  #   # and drop this line.
+  #   network_mode: host

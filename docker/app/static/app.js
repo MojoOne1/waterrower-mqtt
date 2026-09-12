@@ -39,6 +39,7 @@ const I18N = {
     phHost: "10.0.0.5 oder broker.local", phOptional: "optional",
     settingsHint: "Der Präfix muss zu <code>topic_prefix</code> in der ESPHome-Konfiguration passen.",
     btnConnect: "Verbinden", formConnecting: "Verbinde …", formConnected: "Verbunden",
+    formSaved: "Gespeichert",
     saveFailed: "Speichern fehlgeschlagen", noConnection: "Keine Verbindung – Adresse, Port und Login prüfen",
     waiting: "Warten auf Ruderschlag …",
     waitingTotal: (m) => `Warten auf Ruderschlag. Gesamt gerudert: ${m} m`,
@@ -55,9 +56,50 @@ const I18N = {
     allSessions: "Alle Einheiten", chartTrend: "Distanz je Einheit", exportAll: "Alle als Excel",
     trendSum: (n, m, dur) => `${n} Einheiten · ${m} m · ${dur} gesamt`,
     noSamples: "Keine Messpunkte", avg: "Ø",
-    endSession: "Einheit beenden", confirmEnd: "Diese Einheit jetzt beenden und den Monitor zurücksetzen?", endFailed: "Beenden fehlgeschlagen",
+    endSession: "Einheit beenden", confirmEnd: "Diese Einheit jetzt beenden? Der Monitor behält seine Anzeige.",
+    zeroMonitor: "Beenden & nullen", confirmZero: "Einheit beenden und den Monitor auf null setzen?",
+    endFailed: "Beenden fehlgeschlagen",
+    raceFree: "Frei rudern", raceGo: "LOS",
+    raceHold: "Monitor wird genullt – noch nicht rudern",
+    racePlace: (p, n) => `Platz ${p} von ${n}`,
+    raceLead: "in Führung", raceDone: (t) => `im Ziel ${t}`,
+    raceOver: "Rennen beendet",
     fDistance: "Distanz", fDuration: "Dauer", fSplit: "Ø 500 m", fAvgSpeed: "Ø Geschwindigkeit", fPeak: "Spitze",
     fAvgSpm: "Ø Schlagfrequenz", fStrokes: "Schläge", fMeterPerStroke: "Meter je Schlag",
+    arenaTitle: "Arena – gemeinsam rudern",
+    arenaUrl: "Server", arenaUrlPh: "arena.example.com", arenaToken: "Token",
+    arenaEnabled: "Daten an die Arena senden",
+    arenaHint: "Der Token kommt aus der Arena unter <em>Konto → Tracker-Verbindung</em>. " +
+      "Aufgezeichnet wird weiterhin lokal; die Arena bekommt eine Kopie und kann vor einem Rennen den Monitor zurücksetzen.",
+    btnSave: "Speichern",
+    arenaOn: (who) => `Arena: ${who || "verbunden"}`,
+    arenaOff: "Arena getrennt", arenaIdle: "Arena aus",
+    fwTitle: "Firmware auf dem ESP",
+    fwRunning: "Läuft gerade", fwExpected: "Zu diesem Tracker gehört",
+    fwUrl: "ESPHome-Dashboard", fwUrlPh: "http://10.0.0.5:6052",
+    fwOpen: "ESPHome öffnen",
+    fwUnknown: "unbekannt – erst wenn MQTT fließt",
+    fwMatch: "Passt zusammen.",
+    fwDiffer: "Andere Version als dieser Tracker. Das ist erlaubt, kann aber " +
+      "erklären, warum ein neues Feld fehlt.",
+    fwUnreachable: "Vom Tracker aus nicht erreichbar. Der Link geht trotzdem – " +
+      "dein Browser kommt oft dorthin, wo dieser Container nicht hinkommt.",
+    fwConfig: "Konfiguration",
+    fwDownload: "Herunterladen", fwInstall: "Ins ESPHome-Verzeichnis",
+    fwUpload: "Eigene YAML …",
+    fwShipped: (v) => `mitgeliefert (${v})`,
+    fwGithub: "neueste von GitHub",
+    fwLocal: (v) => `im Ordner (${v})`, fwLocalPlain: "im Ordner",
+    fwFetching: "Wird von GitHub geholt …",
+    fwWroteVersion: (n, v) => `${n} (${v}) liegt jetzt im ESPHome-Verzeichnis.`,
+    fwNoDir: (d) => `${d} ist nicht eingebunden – teile den Ordner mit dem ` +
+      "ESPHome-Container, dann landet die YAML direkt dort. Herunterladen geht immer.",
+    fwWrote: (n) => `${n} liegt jetzt im ESPHome-Verzeichnis.`,
+    fwExists: (n) => `${n} ist schon da. Überschreiben?`,
+    fwHint: "Kompiliert und geflasht wird im ESPHome-Dashboard: YAML bearbeiten, " +
+      "<em>Install → Wirelessly</em>, fertig. Der Tracker baut nichts selbst – dafür " +
+      "bräuchte er eine ganze Toolchain, und er soll vor allem eines: weiter aufzeichnen. " +
+      "Den Container gibt es auskommentiert in der Compose-Datei.",
   },
   en: {
     locale: "en-GB",
@@ -70,6 +112,7 @@ const I18N = {
     phHost: "10.0.0.5 or broker.local", phOptional: "optional",
     settingsHint: "The prefix must match <code>topic_prefix</code> in the ESPHome configuration.",
     btnConnect: "Connect", formConnecting: "Connecting …", formConnected: "Connected",
+    formSaved: "Saved",
     saveFailed: "Saving failed", noConnection: "No connection – check address, port and login",
     waiting: "Waiting for a stroke …",
     waitingTotal: (m) => `Waiting for a stroke. Total rowed: ${m} m`,
@@ -86,9 +129,50 @@ const I18N = {
     allSessions: "All sessions", chartTrend: "Distance per session", exportAll: "All as Excel",
     trendSum: (n, m, dur) => `${n} sessions · ${m} m · ${dur} total`,
     noSamples: "No samples", avg: "avg",
-    endSession: "End session", confirmEnd: "End this session now and reset the monitor?", endFailed: "Could not end the session",
+    endSession: "End session", confirmEnd: "End your session now? The monitor keeps its display.",
+    zeroMonitor: "End & zero", confirmZero: "End the session and set the monitor back to zero?",
+    endFailed: "Could not end the session",
+    raceFree: "Just row", raceGo: "GO",
+    raceHold: "Monitor being zeroed - do not row yet",
+    racePlace: (p, n) => `Place ${p} of ${n}`,
+    raceLead: "in the lead", raceDone: (t) => `finished ${t}`,
+    raceOver: "Race over",
     fDistance: "Distance", fDuration: "Duration", fSplit: "Avg 500 m", fAvgSpeed: "Avg speed", fPeak: "Peak",
     fAvgSpm: "Avg stroke rate", fStrokes: "Strokes", fMeterPerStroke: "Metres per stroke",
+    arenaTitle: "Arena – rowing together",
+    arenaUrl: "Server", arenaUrlPh: "arena.example.com", arenaToken: "Token",
+    arenaEnabled: "Send data to the arena",
+    arenaHint: "The token comes from the arena under <em>Account → Tracker connection</em>. " +
+      "Recording stays local; the arena gets a copy and may reset the monitor before a race.",
+    btnSave: "Save",
+    arenaOn: (who) => `Arena: ${who || "connected"}`,
+    arenaOff: "Arena disconnected", arenaIdle: "Arena off",
+    fwTitle: "Firmware on the ESP",
+    fwRunning: "Running now", fwExpected: "Ships with this tracker",
+    fwUrl: "ESPHome dashboard", fwUrlPh: "http://10.0.0.5:6052",
+    fwOpen: "Open ESPHome",
+    fwUnknown: "unknown - only once MQTT is flowing",
+    fwMatch: "These match.",
+    fwDiffer: "A different version from this tracker. That is allowed, but it " +
+      "can explain a missing field.",
+    fwUnreachable: "Not reachable from the tracker. The link still works - your " +
+      "browser often gets where this container cannot.",
+    fwConfig: "Configuration",
+    fwDownload: "Download", fwInstall: "Into the ESPHome folder",
+    fwUpload: "Your own YAML …",
+    fwShipped: (v) => `shipped (${v})`,
+    fwGithub: "latest from GitHub",
+    fwLocal: (v) => `in the folder (${v})`, fwLocalPlain: "in the folder",
+    fwFetching: "Fetching from GitHub …",
+    fwWroteVersion: (n, v) => `${n} (${v}) is now in the ESPHome folder.`,
+    fwNoDir: (d) => `${d} is not mounted - share the folder with the ESPHome ` +
+      "container and the YAML lands there directly. Downloading always works.",
+    fwWrote: (n) => `${n} is now in the ESPHome folder.`,
+    fwExists: (n) => `${n} is already there. Overwrite?`,
+    fwHint: "Compiling and flashing happen in the ESPHome dashboard: edit the YAML, " +
+      "<em>Install → Wirelessly</em>, done. The tracker builds nothing itself - that " +
+      "would need a whole toolchain, and its one job is to keep recording. The " +
+      "container is in the compose file, commented out.",
   },
 };
 
@@ -118,6 +202,7 @@ async function setLang(next) {
   try { localStorage.setItem("lang", lang); } catch {}
   applyLang();
   if (lastSnap) renderLive(lastSnap);
+  pollArena();
   await loadSessions();
   if (selected) await selectSession(selected);
   renderCompare();
@@ -193,8 +278,55 @@ async function getSession(id) {
 
 // --- Live display --------------------------------------------------------
 
+/* The arena pushes each racer their own slice down the uplink, so the
+   screen at the machine can show the countdown and where they stand
+   without a phone propped up next to it. Their lane only - the whole field
+   is what the arena itself is for. */
+function renderRace(race) {
+  const strip = $("race-strip");
+  if (!strip) return;
+  strip.hidden = !race;
+  strip.className = "race-strip";
+  if (!race) return;
+  strip.textContent = "";
+
+  const label = race.mode === "distance" ? `${fmtInt(race.target)} m`
+    : race.mode === "time" ? fmtDur(race.target) : t("raceFree");
+  const head = document.createElement("span");
+  head.className = "race-name";
+  head.textContent = [race.name, label].filter(Boolean).join(" · ");
+  strip.appendChild(head);
+
+  const big = document.createElement("span");
+  big.className = "race-big";
+  const rest = document.createElement("span");
+  rest.className = "race-rest";
+
+  if (race.state === "countdown") {
+    strip.classList.add("countdown");
+    const left = Math.max(0, Math.ceil(race.countdown_in || 0));
+    big.textContent = left > 0 ? String(left) : t("raceGo");
+    rest.textContent = t("raceHold");
+  } else if (race.state === "running") {
+    big.textContent = fmtInt(race.progress) + " m";
+    const bits = [];
+    if (race.place) bits.push(t("racePlace", race.place, race.lanes));
+    if (race.finished) bits.push(t("raceDone", fmtDur(race.time_s)));
+    else if (race.gap_m > 0) bits.push(`−${fmtInt(race.gap_m)} m`);
+    else bits.push(t("raceLead"));
+    rest.textContent = bits.join("  ·  ");
+  } else {
+    strip.classList.add("done");
+    big.textContent = race.time_s != null ? fmtDur(race.time_s) : fmtInt(race.progress) + " m";
+    rest.textContent = race.place ? t("racePlace", race.place, race.lanes) : t("raceOver");
+  }
+  strip.appendChild(big);
+  strip.appendChild(rest);
+}
+
 function renderLive(snap) {
   lastSnap = snap;
+  renderRace(snap.race);
   const v = snap.values || {};
   const active = snap.session_active;
 
@@ -216,6 +348,7 @@ function renderLive(snap) {
   $("s4-text").textContent = present == null ? t("s4Unknown") : !present ? t("s4Off") : usb ? t("s4Usb") : t("s4On");
 
   $("end").hidden = !(active && snap.session_id);
+  $("zero").hidden = $("end").hidden;
   renderFooter();
 
   const line = $("session-line");
@@ -228,11 +361,19 @@ function renderLive(snap) {
   }
 }
 
-$("end").onclick = async () => {
-  if (!confirm(t("confirmEnd"))) return;
-  const r = await fetch("/api/session/end", { method: "POST" });
-  if (!r.ok) alert((await r.json()).detail || t("endFailed"));
-};
+/* End leaves the numbers on the monitor to be read while rowing out;
+   zero clears them for the next piece. The arena shows the same pair with
+   the same words, so it does not matter which screen you reach for. */
+function endWith(path, confirmKey) {
+  return async () => {
+    if (!confirm(t(confirmKey))) return;
+    const r = await fetch(path, { method: "POST" });
+    if (!r.ok) alert((await r.json()).detail || t("endFailed"));
+  };
+}
+
+$("end").onclick = endWith("/api/session/end", "confirmEnd");
+$("zero").onclick = endWith("/api/session/reset", "confirmZero");
 
 function connectStream() {
   const es = new EventSource("/api/stream");
@@ -593,6 +734,201 @@ settingsForm.onsubmit = async (e) => {
   else { settingsMsg.textContent = s.error || t("noConnection"); settingsMsg.className = "form-msg err"; }
 };
 
+// --- Arena uplink ----------------------------------------------------------
+
+const arenaForm = $("arena-form"), arenaMsg = $("arena-msg");
+
+function renderArena(s) {
+  const pill = $("arena-pill");
+  pill.hidden = !s.url;
+  pill.classList.toggle("usb", s.connected);
+  pill.classList.toggle("on", s.enabled && !s.connected);
+  $("arena-text").textContent = !s.enabled ? t("arenaIdle")
+    : s.connected ? t("arenaOn", s.athlete) : t("arenaOff");
+  pill.title = s.error || "";
+}
+
+async function loadArena() {
+  const s = await (await fetch("/api/arena")).json();
+  arenaForm.elements.arena_url.value = s.url || "";
+  // The token is write-only: the server never hands it back, so a set one
+  // is shown as dots and left alone unless it is typed over.
+  arenaForm.elements.arena_token.value = s.token_set ? "••••••" : "";
+  arenaForm.elements.arena_enabled.checked = !!s.enabled;
+  renderArena(s);
+}
+
+arenaForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const f = arenaForm.elements;
+  const body = {
+    arena_url: f.arena_url.value.trim(),
+    arena_token: f.arena_token.value,
+    arena_enabled: f.arena_enabled.checked,
+  };
+  arenaMsg.className = "form-msg"; arenaMsg.textContent = "";
+  const r = await fetch("/api/arena", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    arenaMsg.textContent = (await r.json()).detail || t("saveFailed");
+    arenaMsg.className = "form-msg err";
+    return;
+  }
+  arenaMsg.textContent = t("formConnecting");
+  await new Promise((res) => setTimeout(res, 2500));
+  const s = await (await fetch("/api/arena")).json();
+  renderArena(s);
+  arenaMsg.className = s.connected ? "form-msg ok" : "form-msg err";
+  arenaMsg.textContent = s.connected ? t("formConnected") : (s.error || t("noConnection"));
+};
+
+// --- Firmware --------------------------------------------------------------
+
+const fwForm = $("fw-form"), fwMsg = $("fw-msg");
+
+function renderFirmware(f) {
+  $("fw-running").textContent = f.running || t("fwUnknown");
+  $("fw-expected").textContent = f.expected || "–";
+  const open = $("fw-open");
+  open.hidden = !f.url;
+  if (f.url) open.href = f.url;
+
+  /* One line, and only when it says something. A match is worth confirming
+     once; a mismatch is not an error, because running last month's firmware
+     on purpose is a normal thing to do. */
+  const note = $("fw-note");
+  let text = "", cls = "fw-note";
+  if (f.url && f.reachable === false) {
+    text = t("fwUnreachable"); cls += " warn";
+  } else if (f.running && f.expected && f.running !== "dev" && f.expected !== "dev") {
+    const same = f.running === f.expected;
+    text = same ? t("fwMatch") : t("fwDiffer");
+    cls += same ? " ok" : " warn";
+  }
+  note.className = cls;
+  note.textContent = text;
+  note.hidden = !text;
+
+  renderConfigs(f);
+}
+
+/* The picker: whatever the tracker can offer, with the one that shipped
+   with this release first. It is the one that matches - no checkout, no
+   copying a file out of GitHub by hand. */
+function renderConfigs(f) {
+  const sel = $("fw-config");
+  const had = sel.value;
+  sel.textContent = "";
+  (f.configs || []).forEach((c) => {
+    const where = c.kind === "shipped" ? t("fwShipped", c.version)
+      : c.kind === "github" ? t("fwGithub")
+      : c.version ? t("fwLocal", c.version) : t("fwLocalPlain");
+    const o = new Option(`${c.name} · ${where}`, c.source);
+    // The file name is not the source: "github" and "shipped" are places,
+    // and both land as waterrower.yaml.
+    o.dataset.name = c.name;
+    sel.appendChild(o);
+  });
+  if (had && [...sel.options].some((o) => o.value === had)) sel.value = had;
+  sel.disabled = !sel.options.length;
+
+  const dl = $("fw-download");
+  dl.href = `/api/firmware/yaml?source=${encodeURIComponent(sel.value || "shipped")}`;
+  sel.onchange = () => {
+    dl.href = `/api/firmware/yaml?source=${encodeURIComponent(sel.value)}`;
+  };
+
+  /* Writing needs the folder shared with the other container. Say so once,
+     here, instead of letting the button fail with a shrug. */
+  $("fw-install").disabled = !f.config_dir_ok;
+  const msg = $("fw-yaml-msg");
+  if (!f.config_dir_ok) {
+    msg.className = "fw-note warn";
+    msg.textContent = t("fwNoDir", f.config_dir || "/esphome");
+    msg.hidden = false;
+  } else if (!msg.dataset.sticky) {
+    msg.hidden = true;
+  }
+}
+
+async function installYaml(body) {
+  const msg = $("fw-yaml-msg");
+  if (body.source === "github") {
+    msg.className = "fw-note";
+    msg.textContent = t("fwFetching");
+    msg.hidden = false;
+  }
+  const r = await fetch("/api/firmware/yaml", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (r.status === 409 && !body.overwrite) {
+    if (confirm(t("fwExists", body.name))) return installYaml({ ...body, overwrite: true });
+    return;
+  }
+  msg.dataset.sticky = "1";
+  msg.hidden = false;
+  if (!r.ok) {
+    msg.className = "fw-note warn";
+    msg.textContent = data.detail || t("saveFailed");
+    return;
+  }
+  msg.className = "fw-note ok";
+  const wrote = data.wrote || {};
+  msg.textContent = wrote.version ? t("fwWroteVersion", body.name, wrote.version)
+                                  : t("fwWrote", body.name);
+  renderFirmware(data);
+}
+
+$("fw-install").onclick = () => {
+  const sel = $("fw-config");
+  const opt = sel.selectedOptions[0];
+  if (!opt) return;
+  installYaml({ source: sel.value, name: opt.dataset.name || "waterrower.yaml" });
+};
+
+$("fw-file").onchange = async (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const content = await file.text();
+  e.target.value = "";                 // so the same file can be picked again
+  await installYaml({ source: "upload", name: file.name, content });
+};
+
+async function loadFirmware() {
+  try {
+    const f = await (await fetch("/api/firmware")).json();
+    fwForm.elements.esphome_url.value = f.url || "";
+    renderFirmware(f);
+  } catch {}
+}
+
+fwForm.onsubmit = async (e) => {
+  e.preventDefault();
+  fwMsg.className = "form-msg"; fwMsg.textContent = "";
+  const r = await fetch("/api/firmware", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ esphome_url: fwForm.elements.esphome_url.value.trim() }),
+  });
+  if (!r.ok) {
+    fwMsg.textContent = t("saveFailed");
+    fwMsg.className = "form-msg err";
+    return;
+  }
+  renderFirmware(await r.json());
+  fwMsg.className = "form-msg ok";
+  fwMsg.textContent = t("formSaved");
+};
+
+/* Status only - never the input fields, or it would overwrite what is being
+   typed while the panel is open. */
+async function pollArena() {
+  try { renderArena(await (await fetch("/api/arena")).json()); } catch {}
+}
+setInterval(pollArena, 15000);
+
 // --- Version footer --------------------------------------------------------
 
 const REPO = "https://github.com/MojoOne1/waterrower-mqtt";
@@ -621,4 +957,6 @@ applyLang();
 connectStream();
 loadSessions();
 loadSettings();
+loadArena();
+loadFirmware();
 loadVersion();

@@ -1,0 +1,452 @@
+/* Same palette as the tracker - the S4's dark housing and olive LCD - so the
+   two apps read as one project. Light and dark are both chosen, not flipped. */
+:root {
+  color-scheme: light;
+  --page: #e7e9e1;
+  --paper: #faf9f5;
+  --paper-2: #f1f2ea;
+  --housing: #262a2e;
+  --housing-2: #14171a;
+  --lcd: #a9b57a;
+  --lcd-2: #9aa86a;
+  --lcd-ink: #16200f;
+  --ink: #1c1f22;
+  --ink-2: #5c6058;
+  --muted: #7c8076;
+  --line: #d2d5ca;
+  --grid: #e4e6dc;
+  --accent: #a9601f;
+  --accent-soft: rgba(169, 96, 31, 0.12);
+  --good: #1f7a46;
+  --bad: #a2412f;
+  --warn: #b5761c;
+  --live: #eb6834;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --gold: #c8931f;
+  --shadow-1: 0 1px 2px rgba(20, 23, 26, 0.06), 0 2px 8px rgba(20, 23, 26, 0.05);
+  --shadow-2: 0 2px 6px rgba(20, 23, 26, 0.12), 0 14px 30px rgba(20, 23, 26, 0.14);
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #101210;
+    --paper: #1b1d1b;
+    --paper-2: #232622;
+    --housing: #2b2f33;
+    --housing-2: #191c1f;
+    --lcd: #8d9a5e;
+    --lcd-2: #7d8a51;
+    --lcd-ink: #0f160b;
+    --ink: #eceee7;
+    --ink-2: #b9bdb2;
+    --muted: #8d9187;
+    --line: #343830;
+    --grid: #2b2e29;
+    --accent: #d98b4a;
+    --accent-soft: rgba(217, 139, 74, 0.16);
+    --good: #3fae70;
+    --bad: #e07a63;
+    --warn: #d9a94a;
+    --live: #d95926;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --gold: #e0b84a;
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+    --shadow-2: 0 6px 24px rgba(0, 0, 0, 0.55);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #101210;
+  --paper: #1b1d1b;
+  --paper-2: #232622;
+  --housing: #2b2f33;
+  --housing-2: #191c1f;
+  --lcd: #8d9a5e;
+  --lcd-2: #7d8a51;
+  --lcd-ink: #0f160b;
+  --ink: #eceee7;
+  --ink-2: #b9bdb2;
+  --muted: #8d9187;
+  --line: #343830;
+  --grid: #2b2e29;
+  --accent: #d98b4a;
+  --accent-soft: rgba(217, 139, 74, 0.16);
+  --good: #3fae70;
+  --bad: #e07a63;
+  --warn: #d9a94a;
+  --live: #d95926;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --gold: #e0b84a;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-2: 0 6px 24px rgba(0, 0, 0, 0.55);
+}
+
+* { box-sizing: border-box; }
+/* Several things here are laid out with flex or grid, which beats the
+   browser's own [hidden] rule on specificity - so say it properly. */
+[hidden] { display: none !important; }
+html { font-size: 16px; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font);
+  line-height: 1.45;
+}
+h1, h2, h3 { font-weight: 600; margin: 0; }
+h1 { font-size: 1.15rem; letter-spacing: 0.01em; }
+h2 { font-size: 0.95rem; }
+h3 { font-size: 0.85rem; color: var(--ink-2); }
+button, a, input, select { font: inherit; color: inherit; }
+button {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 6px;
+  padding: 0.32rem 0.75rem; cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+button.primary:hover:not(:disabled) { filter: brightness(1.1); color: #fff; }
+a { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; cursor: pointer; }
+a:hover { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input, select {
+  padding: 0.42rem 0.55rem; border: 1px solid var(--line);
+  border-radius: 6px; background: var(--page); color: var(--ink);
+}
+input:focus, select:focus { border-color: var(--accent); outline: none; background: var(--paper); }
+input[type="color"] { padding: 2px; height: 2.1rem; width: 3.4rem; }
+table.table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+table.table th, table.table td {
+  text-align: right; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--line);
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  /* A distance broken across two lines is unreadable; on a narrow screen
+     the table scrolls in its own box instead (see .scroll-x). */
+  white-space: nowrap;
+}
+/* Names read left, numbers read right - and a name is not always the first
+   column (in a race result the placing is). */
+table.table th:first-child, table.table td:first-child,
+table.table th.who, table.table td.who { text-align: left; font-family: var(--font); }
+table.table thead th { font-family: var(--font); font-weight: 500; color: var(--muted); font-size: 0.78rem; }
+table.table tr.win td { font-weight: 700; }
+/* The swatch carries its own spacing and alignment, so a `.who` cell stays
+   plain inline flow - making a <td> a flex container costs it its table
+   cell behaviour and breaks the row's bottom border. */
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 0.45rem; vertical-align: middle; }
+.empty, .hint { color: var(--muted); font-size: 0.85rem; margin: 0.2rem 0; }
+.spacer { flex: 1; }
+.warn-line { color: var(--warn); font-size: 0.85rem; margin: 0.2rem 0; }
+
+/* --- Sign in ---------------------------------------------------------- */
+.gate { min-height: 100vh; display: grid; place-items: center; padding: 1.5rem; }
+.gate-card { width: min(420px, 100%); display: flex; flex-direction: column; gap: 0.8rem; }
+.gate-card label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; color: var(--muted); }
+
+/* --- Frame ------------------------------------------------------------ */
+.top { max-width: 1100px; margin: 0 auto; padding: 1rem 1.5rem 0.6rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.top-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--paper); }
+.seg button { border: 0; border-radius: 0; padding: 0.25rem 0.6rem; font-size: 0.78rem; color: var(--muted); background: none; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.active { background: var(--accent); color: #fff; }
+.seg button.active:hover { color: #fff; }
+.nav button { padding: 0.35rem 0.9rem; font-size: 0.85rem; }
+.conn { display: flex; align-items: center; gap: 0.45rem; font-size: 0.8rem; color: var(--ink-2); }
+.conn .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+.conn.on .dot { background: var(--good); box-shadow: 0 0 0 3px rgba(31, 122, 70, 0.15); }
+.conn.off .dot { background: var(--bad); }
+.whoami { font-size: 0.8rem; color: var(--ink-2); }
+.logout { font-size: 0.78rem; padding: 0.25rem 0.6rem; color: var(--muted); }
+
+.view { max-width: 1100px; margin: 1rem auto 3rem; padding: 0 1.5rem; }
+.stack { display: flex; flex-direction: column; gap: 0.9rem; }
+.card {
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: 10px; padding: 1rem 1.2rem; box-shadow: var(--shadow-1);
+}
+.card form, form.card { display: flex; flex-direction: column; gap: 0.7rem; }
+form.card label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; color: var(--muted); }
+.form-foot { display: flex; justify-content: flex-end; align-items: center; gap: 1rem; }
+.form-msg { font-size: 0.85rem; color: var(--muted); }
+.form-msg.err { color: var(--bad); }
+.form-msg.ok { color: var(--good); }
+.foot { max-width: 1100px; margin: 0 auto 2rem; padding: 0 1.5rem; font-size: 0.75rem; color: var(--muted); }
+
+/* --- Arena ------------------------------------------------------------ */
+.banner {
+  display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;
+  background: var(--accent-soft); border: 1px solid var(--accent);
+  border-radius: 10px; padding: 0.7rem 1rem;
+}
+.banner .sub { color: var(--ink-2); font-size: 0.85rem; }
+.banner button { margin-left: auto; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0.8rem; }
+.card.athlete { border-left: 4px solid var(--lane, var(--line)); }
+.card.athlete.off { opacity: 0.6; }
+.athlete-head { display: flex; align-items: center; gap: 0.5rem; }
+.athlete-head .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+.card.athlete:not(.off) .athlete-head .dot { background: var(--good); }
+.card.athlete.live .athlete-head .dot { background: var(--live); animation: pulse 1.1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .card.athlete.live .athlete-head .dot { animation: none; } }
+.athlete-head .status { margin-left: auto; font-size: 0.75rem; color: var(--muted); }
+.mini { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem 0.8rem; margin-top: 0.7rem; }
+.mini .lbl { display: block; font-size: 0.7rem; color: var(--muted); }
+.mini .val { display: block; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
+.cards .empty { grid-column: 1 / -1; }
+button.end-session, button.zero-monitor { margin-top: 0.7rem; width: 100%; }
+.session-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.session-buttons button { flex: 1 1 8rem; }
+.totals, #rec-totals, #compare { overflow-x: auto; }
+
+/* --- Race ------------------------------------------------------------- */
+.race-card { display: flex; flex-direction: column; gap: 0.8rem; }
+.race-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+.clock { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 1.8rem; font-weight: 700; }
+.clock .sub { font-size: 0.7rem; font-weight: 400; color: var(--muted); margin-left: 0.4rem; font-family: var(--font); }
+.count {
+  font-family: var(--mono); font-size: clamp(3rem, 18vw, 7rem); font-weight: 700;
+  text-align: center; line-height: 1.1; color: var(--accent);
+}
+.count.go { color: var(--good); }
+.actions-bar { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.presets { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.presets button { font-size: 0.78rem; padding: 0.2rem 0.6rem; }
+.template-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.6rem; }
+button.template { display: flex; flex-direction: column; align-items: flex-start; gap: 0.1rem; text-align: left; padding: 0.6rem 0.8rem; border-left: 3px solid var(--accent); }
+button.template .sub { font-family: var(--mono); font-size: 0.8rem; color: var(--accent); }
+button.template .note { font-size: 0.75rem; color: var(--muted); }
+
+.lanes { display: flex; flex-direction: column; gap: 0.9rem; list-style: none; margin: 0; padding: 0; }
+.lobby-lanes li { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0; border-bottom: 1px solid var(--line); }
+.lobby-lanes .sw { background: var(--lane); }
+.tag { font-size: 0.72rem; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0.05rem 0.5rem; }
+.tag.ok { color: var(--good); border-color: var(--good); }
+.tag.warn { color: var(--warn); border-color: var(--warn); }
+.ghost-pick { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; padding-top: 0.5rem; }
+.ghost-pick p { width: 100%; }
+
+.lane { border-left: 4px solid var(--lane); padding-left: 0.7rem; }
+.lane.mine { background: var(--paper-2); border-radius: 0 8px 8px 0; padding: 0.4rem 0.6rem 0.4rem 0.7rem; }
+.lane.done { opacity: 0.85; }
+.lane-head { display: flex; align-items: baseline; gap: 0.5rem; }
+.lane-head .pos {
+  font-family: var(--mono); font-weight: 700; width: 1.4rem; text-align: center;
+  color: var(--muted);
+}
+.lane.done .lane-head .pos { color: var(--ink); }
+.lane-head .gap { margin-left: auto; font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.lane-head .gap.lead { color: var(--good); }
+.track {
+  position: relative; height: 10px; margin: 0.35rem 0;
+  background: var(--grid); border-radius: 999px; overflow: visible;
+}
+.track .fill { height: 100%; background: var(--lane); border-radius: 999px; transition: width 0.45s linear; }
+.track .boat {
+  position: absolute; top: -7px; transform: translateX(-50%);
+  font-size: 0.9rem; transition: left 0.45s linear;
+}
+.lane-stats { display: flex; gap: 1.2rem; flex-wrap: wrap; }
+.lane-stats .val { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 1rem; }
+.lane-stats .lbl { font-size: 0.7rem; color: var(--muted); margin-left: 0.25rem; }
+
+.race-history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+/* Direct children only - the podium inside must not become a card too. */
+.race-history > li { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 0.7rem 1rem; }
+.rh-head { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+.rh-head .sub { color: var(--muted); font-size: 0.8rem; }
+.podium { list-style: none; margin: 0.4rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.podium li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+.podium li:first-child { font-weight: 600; }
+.podium li:first-child .val { color: var(--gold); }
+.podium .who { flex: 1; }
+.podium .val { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* --- Sessions --------------------------------------------------------- */
+.filters { display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; }
+.filters label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; color: var(--muted); }
+/* A link that has to sit in a row of buttons and look like one. */
+a.button-link {
+  display: inline-block; text-decoration: none;
+  background: var(--paper); border: 1px solid var(--line); border-radius: 6px;
+  padding: 0.32rem 0.75rem; color: var(--ink); font-size: 0.85rem;
+}
+a.button-link:hover { border-color: var(--accent); color: var(--accent); }
+.split { display: grid; grid-template-columns: 280px 1fr; gap: 1.6rem; align-items: start; }
+.list ul { list-style: none; margin: 0; padding: 0; }
+.list li {
+  padding: 0.5rem 0.65rem; border-left: 3px solid transparent; border-radius: 0 7px 7px 0;
+  cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 0.1rem 0.8rem;
+  font-size: 0.88rem; transition: background 0.12s, border-color 0.12s;
+}
+.list li:hover { background: var(--paper-2); }
+.list li.sel { border-left-color: var(--lane, var(--accent)); background: var(--paper); box-shadow: var(--shadow-1); }
+.list li.cmp { border-left-color: var(--lane, var(--accent)); }
+.list li .when { font-weight: 600; }
+.list li .dist { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.list li .sub { grid-column: 1 / -1; color: var(--muted); font-size: 0.78rem; }
+.detail-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+.actions { display: flex; gap: 0.9rem; align-items: center; font-size: 0.85rem; }
+.cmp { display: flex; gap: 0.35rem; align-items: center; cursor: pointer; }
+.cmp input { accent-color: var(--accent); }
+.facts {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+  gap: 0.7rem 1.2rem; margin: 0.8rem 0 1.2rem; padding: 0.9rem 1rem;
+  background: var(--paper); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-1);
+}
+.facts div { display: flex; flex-direction: column; }
+.facts dt { font-size: 0.72rem; color: var(--muted); }
+.facts dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
+.facts div.lead dd { font-size: 1.5rem; }
+figure { margin: 0 0 1.2rem; }
+figcaption { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.3rem; display: flex; justify-content: space-between; gap: 0.6rem; }
+.readout { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--ink); min-height: 1.2em; }
+canvas {
+  width: 100%; display: block; background: var(--paper);
+  border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-1); cursor: crosshair;
+}
+.legend { list-style: none; margin: 0.3rem 0 0.6rem; padding: 0; display: flex; gap: 1.2rem; flex-wrap: wrap; font-size: 0.8rem; color: var(--ink-2); }
+.legend li { display: flex; gap: 0.4rem; align-items: center; }
+.legend i { width: 18px; height: 3px; border-radius: 2px; display: inline-block; }
+
+/* --- Badges ----------------------------------------------------------- */
+/* A badge is an object, not a row: the mark carries it, and the card stays
+   quiet so a wall of them does not shout. Earned ones get the accent edge -
+   that is the whole hierarchy. */
+.badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.8rem; }
+.card.badge { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.9rem 1rem; }
+.card.badge.mine { border-color: var(--accent); box-shadow: var(--shadow-1), inset 3px 0 0 var(--accent); }
+.card.badge.locked { opacity: 0.62; border-style: dashed; }
+.badge-mark {
+  font-size: 1.6rem; line-height: 1.1;
+  filter: saturate(0.9);
+}
+.card.badge.locked .badge-mark { filter: grayscale(1); color: var(--muted); }
+.badge-mark.small { font-size: 1.05rem; }
+.badge-head { display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; }
+.card.badge .sub { color: var(--muted); font-size: 0.8rem; margin: 0; }
+.badge-holders { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.35rem; }
+.holder {
+  display: inline-flex; align-items: center; font-size: 0.74rem; color: var(--ink-2);
+  border: 1px solid var(--line); border-radius: 999px; padding: 0.05rem 0.5rem;
+}
+.badge-feed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.badge-feed li {
+  display: flex; align-items: center; gap: 0.55rem; font-size: 0.88rem;
+  border-bottom: 1px solid var(--line); padding: 0.35rem 0;
+}
+.badge-feed .sub { margin-left: auto; color: var(--muted); font-size: 0.78rem; }
+
+/* --- My session, docked ------------------------------------------------ */
+/* The S4's own look: dark bezel, olive cells. Fixed rather than sticky, so
+   it holds whichever tab is open and however far it is scrolled - the race
+   view goes static the moment the race ends, which is exactly when you are
+   rowing it out and want to watch the numbers. */
+.my-session {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap;
+  background: linear-gradient(160deg, var(--housing), var(--housing-2));
+  padding: 8px 10px; box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.28);
+}
+.my-session .lcd-cell {
+  flex: 1 1 5.5rem; min-width: 4.6rem;
+  background: linear-gradient(170deg, var(--lcd), var(--lcd-2));
+  color: var(--lcd-ink); border-radius: 6px; padding: 0.3rem 0.55rem 0.25rem;
+  display: grid; grid-template-columns: 1fr auto;
+  grid-template-areas: "lbl unit" "val val";
+  align-items: end; column-gap: 0.4rem;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.26), inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+}
+.my-session .lbl { grid-area: lbl; font-size: 0.62rem; opacity: 0.85; align-self: start; }
+.my-session .unit { grid-area: unit; font-size: 0.62rem; opacity: 0.85; align-self: start; }
+.my-session .val {
+  grid-area: val; font-family: var(--mono); font-weight: 700; font-size: 1.35rem;
+  line-height: 1.05; text-align: right; font-variant-numeric: tabular-nums;
+}
+.my-session .session-buttons { margin: 0; align-self: center; flex: 0 0 auto; }
+.my-session .session-buttons button {
+  width: auto; margin: 0; flex: 0 0 auto;
+  background: transparent; color: #e8eae3; border-color: rgba(255, 255, 255, 0.3);
+}
+.my-session .session-buttons button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+/* Room so the bar never covers the last row of content. */
+body.has-bar .foot { margin-bottom: 6.5rem; }
+@media (max-width: 560px) {
+  .my-session .val { font-size: 1.1rem; }
+  .my-session .session-buttons { flex: 1 1 100%; }
+  body.has-bar .foot { margin-bottom: 9rem; }
+}
+
+.toast {
+  position: fixed; right: 1rem; bottom: 1rem; z-index: 50;
+  display: flex; align-items: center; gap: 0.6rem;
+  background: var(--paper); border: 1px solid var(--accent);
+  border-radius: 10px; padding: 0.6rem 0.9rem; box-shadow: var(--shadow-2);
+  transition: opacity .5s, transform .5s;
+}
+.toast .sub { display: block; color: var(--muted); font-size: 0.8rem; }
+.toast.gone { opacity: 0; transform: translateY(6px); }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+
+/* --- Records ---------------------------------------------------------- */
+.rec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.8rem; }
+.card.rec { padding: 0.8rem 1rem; }
+.rec-list { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+.rec-list li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; }
+.rec-list .rank { font-family: var(--mono); color: var(--muted); width: 1.1rem; }
+.rec-list li:first-child .rank { color: var(--gold); font-weight: 700; }
+.rec-list .who { flex: 1; }
+.rec-list .val { font-family: var(--mono); font-variant-numeric: tabular-nums; text-decoration: none; }
+.h2h { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.9rem; }
+
+/* --- Account ---------------------------------------------------------- */
+.tokens, .athlete-admin { list-style: none; margin: 0.5rem 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.tokens li, .athlete-admin li {
+  display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap;
+  background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 0.5rem 0.8rem;
+}
+.tokens .sub, .athlete-admin .sub { color: var(--muted); font-size: 0.8rem; margin-right: auto; }
+.athlete-admin .role { display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; color: var(--ink-2); }
+.athlete-admin .role input { accent-color: var(--accent); }
+form.inline { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.sec-row { display: grid; grid-template-columns: 1fr 8rem 9rem; gap: 0.8rem; align-items: end; }
+.sec-head { display: flex; flex-direction: column; }
+.sec-head .sub { color: var(--muted); font-size: 0.78rem; }
+.blocks { margin-top: 0.8rem; }
+.blocks-head { display: flex; align-items: baseline; gap: 0.8rem; }
+.failures { max-height: 22rem; overflow: auto; margin-top: 0.4rem; }
+@media (max-width: 640px) { .sec-row { grid-template-columns: 1fr 1fr; } .sec-head { grid-column: 1 / -1; } }
+.secret {
+  margin-top: 0.6rem; padding: 0.7rem 0.9rem; border: 1px dashed var(--accent);
+  border-radius: 8px; background: var(--accent-soft); width: 100%;
+}
+.secret p { margin: 0 0 0.4rem; font-size: 0.82rem; }
+.secret code { font-family: var(--mono); font-size: 0.8rem; word-break: break-all; display: block; margin-bottom: 0.5rem; }
+
+/* --- Narrow ----------------------------------------------------------- */
+@media (max-width: 860px) {
+  .split { grid-template-columns: 1fr; gap: 1.2rem; }
+}
+@media (max-width: 520px) {
+  .top, .view, .foot { padding-left: 0.9rem; padding-right: 0.9rem; }
+  .nav { width: 100%; }
+  .nav button { flex: 1; padding: 0.35rem 0.4rem; font-size: 0.78rem; }
+  .cards { grid-template-columns: 1fr; }
+  .lane-stats { gap: 0.8rem; }
+  .facts { grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); }
+}

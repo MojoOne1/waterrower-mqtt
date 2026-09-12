@@ -24,6 +24,7 @@
       <button type="button" data-theme="dark" data-i18n-title="themeDark">☾</button>
     </div>
     <span class="s4" id="s4"><span class="dot"></span><span id="s4-text" data-i18n="s4Unknown"></span></span>
+    <span class="s4 arena" id="arena-pill" hidden><span class="dot"></span><span id="arena-text"></span></span>
     <button class="conn" id="conn" type="button" aria-expanded="false" aria-controls="settings">
       <span class="dot"></span><span id="conn-text" data-i18n="connecting"></span>
     </button>
@@ -46,7 +47,58 @@
       <button type="submit" class="primary" data-i18n="btnConnect"></button>
     </div>
   </form>
+
+  <form id="arena-form">
+    <h2 data-i18n="arenaTitle"></h2>
+    <div class="fields arena-fields">
+      <label><span data-i18n="arenaUrl"></span> <input name="arena_url" data-i18n-placeholder="arenaUrlPh"></label>
+      <label><span data-i18n="arenaToken"></span> <input name="arena_token" type="password" autocomplete="off" data-i18n-placeholder="phOptional"></label>
+      <label class="check"><input name="arena_enabled" type="checkbox"> <span data-i18n="arenaEnabled"></span></label>
+    </div>
+    <p class="hint" data-i18n-html="arenaHint"></p>
+    <div class="form-foot">
+      <span class="form-msg" id="arena-msg"></span>
+      <button type="submit" class="primary" data-i18n="btnSave"></button>
+    </div>
+  </form>
+
+  <form id="fw-form">
+    <h2 data-i18n="fwTitle"></h2>
+    <dl class="fw-facts">
+      <dt data-i18n="fwRunning"></dt><dd id="fw-running">–</dd>
+      <dt data-i18n="fwExpected"></dt><dd id="fw-expected">–</dd>
+    </dl>
+    <p class="fw-note" id="fw-note" hidden></p>
+
+    <div class="fw-yaml">
+      <label class="fw-pick">
+        <span data-i18n="fwConfig"></span>
+        <select id="fw-config"></select>
+      </label>
+      <div class="fw-yaml-acts">
+        <a id="fw-download" class="button-link" data-i18n="fwDownload"></a>
+        <button type="button" id="fw-install" data-i18n="fwInstall"></button>
+        <label class="button-link fw-upload">
+          <span data-i18n="fwUpload"></span>
+          <input type="file" id="fw-file" accept=".yaml,.yml" hidden>
+        </label>
+      </div>
+      <p class="fw-note" id="fw-yaml-msg" hidden></p>
+    </div>
+
+    <div class="fields fw-fields">
+      <label><span data-i18n="fwUrl"></span> <input name="esphome_url" data-i18n-placeholder="fwUrlPh"></label>
+    </div>
+    <p class="hint" data-i18n-html="fwHint"></p>
+    <div class="form-foot">
+      <span class="form-msg" id="fw-msg"></span>
+      <a id="fw-open" class="button-link" target="_blank" rel="noopener" data-i18n="fwOpen" hidden></a>
+      <button type="submit" class="primary" data-i18n="btnSave"></button>
+    </div>
+  </form>
 </section>
+
+<div class="race-strip" id="race-strip" hidden></div>
 
 <section class="monitor" aria-label="Performance Monitor">
   <div class="lcd">
@@ -72,7 +124,10 @@
   </div>
   <div class="session-row">
     <p class="session-line" id="session-line" data-i18n="waiting"></p>
-    <button id="end" type="button" data-i18n="endSession" hidden></button>
+    <span class="session-buttons">
+      <button id="end" type="button" data-i18n="endSession" hidden></button>
+      <button id="zero" type="button" data-i18n="zeroMonitor" hidden></button>
+    </span>
   </div>
 </section>
 

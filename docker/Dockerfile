@@ -3,9 +3,12 @@ FROM python:3.12-slim
 RUN apt-get update && apt-get install -y --no-install-recommends tzdata \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY requirements.txt .
+COPY docker/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY app/ .
+COPY docker/app/ .
+# The firmware YAML this release was built against, so the tracker can offer
+# it without a checkout - "row alone" installs from GHCR and has no repo.
+COPY esphome/waterrower.yaml /app/firmware/waterrower.yaml
 # Stamped by the GitHub workflow; local builds show dev/unknown.
 ARG APP_VERSION=dev
 ARG GIT_COMMIT=unknown

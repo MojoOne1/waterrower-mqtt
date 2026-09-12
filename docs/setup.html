@@ -1,0 +1,551 @@
+<title>WaterRower Einrichtung</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Palette aus dem Projekt selbst: das dunkle Gehäuse und das olivgrüne
+     LCD des S4, dazu Kupfer als Akzent. Gleiche Tokens wie Tracker und
+     Arena, damit Anleitung und Anwendung zusammengehören. */
+  :root {
+    color-scheme: light;
+    --page: #e7e9e1;
+    --paper: #faf9f5;
+    --paper-2: #f1f2ea;
+    --housing: #262a2e;
+    --ink: #1c1f22;
+    --ink-2: #545a52;
+    --muted: #7c8076;
+    --line: #d2d5ca;
+    --accent: #a9601f;
+    --accent-soft: rgba(169, 96, 31, 0.10);
+    --lcd: #6f7d42;
+    --warn: #9a5a12;
+    --shadow: 0 1px 2px rgba(20, 23, 26, .05), 0 2px 10px rgba(20, 23, 26, .05);
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --display: "Archivo", var(--sans);
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #101210;
+      --paper: #1b1d1b;
+      --paper-2: #232622;
+      --housing: #2b2f33;
+      --ink: #eceee7;
+      --ink-2: #b9bdb2;
+      --muted: #8d9187;
+      --line: #343830;
+      --accent: #d98b4a;
+      --accent-soft: rgba(217, 139, 74, .14);
+      --lcd: #9aa86a;
+      --warn: #d9a94a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .45);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #101210; --paper: #1b1d1b; --paper-2: #232622; --housing: #2b2f33;
+    --ink: #eceee7; --ink-2: #b9bdb2; --muted: #8d9187; --line: #343830;
+    --accent: #d98b4a; --accent-soft: rgba(217, 139, 74, .14); --lcd: #9aa86a;
+    --warn: #d9a94a; --shadow: 0 1px 2px rgba(0, 0, 0, .45);
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; background: var(--page); color: var(--ink);
+    font-family: var(--sans); font-size: 16px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+
+  /* --- Kopf --- */
+  header { display: flex; flex-direction: column; gap: .5rem; margin-bottom: 2rem; }
+  .eyebrow {
+    font-family: var(--mono); font-size: .72rem; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--accent);
+  }
+  h1 {
+    font-family: var(--display); font-weight: 700; font-size: clamp(1.9rem, 4.5vw, 2.9rem);
+    line-height: 1.08; margin: 0; letter-spacing: -.02em; text-wrap: balance;
+  }
+  .lede { max-width: 62ch; color: var(--ink-2); margin: 0; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  /* --- Zweispaltig: Filter links, Schritte rechts --- */
+  .grid { display: grid; grid-template-columns: 19rem 1fr; gap: 2.5rem; align-items: start; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; gap: 1.5rem; } }
+
+  .panel {
+    position: sticky; top: 1.5rem;
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1.1rem 1.2rem 1.3rem; box-shadow: var(--shadow);
+    display: flex; flex-direction: column; gap: 1.2rem;
+  }
+  @media (max-width: 900px) { .panel { position: static; } }
+  .panel h2 {
+    font-family: var(--display); font-size: .95rem; font-weight: 600; margin: 0;
+  }
+  fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .45rem; }
+  legend {
+    font-family: var(--mono); font-size: .68rem; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted); padding: 0 0 .35rem;
+  }
+  .opt {
+    display: flex; gap: .6rem; align-items: flex-start; cursor: pointer;
+    padding: .5rem .6rem; border: 1px solid transparent; border-radius: 7px;
+    transition: background .12s, border-color .12s;
+  }
+  .opt:hover { background: var(--paper-2); }
+  .opt input { margin: .35rem 0 0; accent-color: var(--accent); flex: none; }
+  .opt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+  .opt input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .opt span { font-size: .88rem; }
+  .opt em { display: block; font-style: normal; font-size: .78rem; color: var(--muted); }
+
+  .tally {
+    font-family: var(--mono); font-size: .78rem; color: var(--ink-2);
+    border-top: 1px solid var(--line); padding-top: .9rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .tally b { color: var(--accent); font-weight: 500; }
+
+  /* --- Schritte --- */
+  ol.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1.1rem; }
+  .step {
+    display: grid; grid-template-columns: 2.6rem 1fr; gap: 0 1rem;
+    padding-bottom: 1.1rem; border-bottom: 1px solid var(--line);
+  }
+  .step:last-child { border-bottom: 0; padding-bottom: 0; }
+  .num {
+    font-family: var(--mono); font-size: .95rem; font-variant-numeric: tabular-nums;
+    color: var(--accent); padding-top: .15rem;
+  }
+  .step h3 {
+    font-family: var(--display); font-size: 1.08rem; font-weight: 600;
+    margin: 0 0 .3rem; letter-spacing: -.01em; text-wrap: balance;
+  }
+  .step .body { grid-column: 2; max-width: 66ch; }
+  .step p { margin: 0 0 .6rem; }
+  .step p:last-child { margin-bottom: 0; }
+  .step ul { margin: 0 0 .6rem; padding-left: 1.1rem; }
+  .step li { margin-bottom: .25rem; }
+  a { color: var(--accent); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+
+  /* Hinweise: Randstreifen statt Karte, damit sie nicht wie ein Schritt aussehen */
+  .note {
+    border-left: 3px solid var(--lcd); padding: .1rem 0 .1rem .85rem;
+    margin: .7rem 0; font-size: .9rem; color: var(--ink-2);
+  }
+  .note.warn { border-left-color: var(--warn); }
+  .note b { color: var(--ink); font-weight: 600; }
+
+  /* --- Befehle --- */
+  .cmd { position: relative; margin: .7rem 0; }
+  .cmd pre {
+    margin: 0; background: var(--housing); color: #e8eae3;
+    border-radius: 8px; padding: .8rem 3.2rem .8rem 1rem;
+    font-family: var(--mono); font-size: .82rem; line-height: 1.55;
+    overflow-x: auto; white-space: pre;
+  }
+  .cmd button {
+    position: absolute; top: .45rem; right: .45rem;
+    font-family: var(--mono); font-size: .68rem; letter-spacing: .06em;
+    background: rgba(255, 255, 255, .08); color: #e8eae3;
+    border: 1px solid rgba(255, 255, 255, .18); border-radius: 5px;
+    padding: .2rem .5rem; cursor: pointer;
+  }
+  .cmd button:hover { background: rgba(255, 255, 255, .16); }
+  .cmd button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  code {
+    font-family: var(--mono); font-size: .86em;
+    background: var(--paper-2); border: 1px solid var(--line);
+    border-radius: 4px; padding: .05em .3em;
+  }
+  .cmd code { background: none; border: 0; padding: 0; }
+
+  .empty { color: var(--muted); font-size: .9rem; }
+  footer {
+    margin-top: 3rem; padding-top: 1.2rem; border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--muted); display: flex; gap: 1.2rem; flex-wrap: wrap;
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">waterrower-mqtt</span>
+    <h1>Vom Karton bis zum ersten Rennen</h1>
+    <p class="lede">Sag links, <strong>was bei dir schon da ist</strong> – rechts bleiben
+      nur die Schritte übrig, die dich betreffen. Ein ESP32 liest den S4-Monitor über
+      USB aus und schickt die Werte weiter; ein Rechner am Ergometer ist nicht nötig.</p>
+  </header>
+
+  <div class="grid">
+    <aside class="panel">
+      <h2>Was hast du schon?</h2>
+
+      <fieldset>
+        <legend>Dein Vorhaben</legend>
+        <label class="opt"><input type="radio" name="role" value="join" checked>
+          <span>Ich schließe mich einer Arena an<em>Jemand hat mir einen Einladungslink geschickt</em></span></label>
+        <label class="opt"><input type="radio" name="role" value="host">
+          <span>Ich betreibe die Arena<em>Server auf eigener Domain, Freunde einladen</em></span></label>
+        <label class="opt"><input type="radio" name="role" value="solo">
+          <span>Nur für mich<em>Aufzeichnen und auswerten, kein gemeinsamer Server</em></span></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Home Assistant</legend>
+        <label class="opt"><input type="radio" name="ha" value="yes">
+          <span>Läuft bei mir<em>Device Builder und Mosquitto als Apps</em></span></label>
+        <label class="opt"><input type="radio" name="ha" value="no" checked>
+          <span>Habe ich nicht<em>Geht auch ohne – Firmware über die Kommandozeile</em></span></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>MQTT-Broker</legend>
+        <label class="opt"><input type="radio" name="broker" value="yes">
+          <span>Habe ich schon<em>Mosquitto oder ein anderer, erreichbar im Netz</em></span></label>
+        <label class="opt"><input type="radio" name="broker" value="no" checked>
+          <span>Noch keiner<em>Kommt als Container mit dem Tracker</em></span></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Hardware</legend>
+        <label class="opt"><input type="radio" name="hw" value="no" checked>
+          <span>Muss ich noch bauen<em>ESP32-S3, Adapter, Lötbrücke</em></span></label>
+        <label class="opt"><input type="radio" name="hw" value="yes">
+          <span>ESP hängt schon am S4<em>Firmware läuft, Daten kommen an</em></span></label>
+      </fieldset>
+
+      <p class="tally" id="tally"></p>
+    </aside>
+
+    <main>
+      <ol class="steps" id="steps"></ol>
+      <p class="empty" id="empty" hidden>Bei dieser Auswahl bleibt nichts übrig – da bist du schon fertig.</p>
+      <footer>
+        <span>Ausführlich im <a href="https://github.com/MojoOne1/waterrower-mqtt">README des Projekts</a></span>
+        <span>Firmware, Tracker und Arena teilen eine Versionsnummer</span>
+      </footer>
+    </main>
+  </div>
+</div>
+
+<script>
+  // Jeder Schritt nennt die Bedingung, unter der er gilt. `when` bekommt die
+  // aktuelle Auswahl und entscheidet - so steht die Verzweigung beim Schritt
+  // und nicht in einer Tabelle weit weg davon.
+  const STEPS = [
+    {
+      id: "teile",
+      title: "Teile besorgen",
+      when: (s) => s.hw === "no",
+      html: `
+        <ul>
+          <li><b>ESP32-S3-DevKitC-1</b> (Klon, N16R8) – muss <em>zwei</em> USB-C-Buchsen haben:
+            <code>COM</code> zum Flashen, <code>USB</code> für den S4.</li>
+          <li><b>USB-C-Buchse auf Mini-USB-Stecker</b> – geht direkt in den S4 und
+            ersetzt dessen mitgeliefertes Kabel.</li>
+          <li><b>USB-C-Kabel</b> vom ESP zu diesem Adapter, und ein <b>USB-Netzteil</b>
+            für die COM-Buchse.</li>
+        </ul>
+        <div class="note">Der S4 läuft weiter auf seinen eigenen Batterien. Über USB
+          zieht er praktisch keinen Strom – die 5 V dienen ihm nur als Nachweis, dass
+          überhaupt ein Host da ist.</div>`
+    },
+    {
+      id: "bruecke",
+      title: "Lötbrücke USB-OTG schließen",
+      when: (s) => s.hw === "no",
+      html: `
+        <p>Auf der Unterseite der Platine sitzt eine offene Brücke mit der Beschriftung
+          <code>USB-OTG</code>. Sie muss <b>geschlossen</b> werden: erst dann liegen die
+          VBUS-Leitungen beider Buchsen zusammen und die <code>USB</code>-Buchse führt
+          die 5 V, die der S4 sehen will.</p>
+        <div class="note warn"><b>Danach nie beide Buchsen gleichzeitig an getrennte
+          Stromquellen hängen.</b> Zum Flashen reicht die COM-Buchse allein.</div>`
+    },
+    {
+      id: "broker-ha",
+      title: "Mosquitto in Home Assistant",
+      when: (s) => s.broker === "no" && s.ha === "yes",
+      html: `
+        <p>Unter <b>Einstellungen → Apps</b> die Mosquitto-App installieren und starten.
+          Dann einen Benutzer anlegen, mit dem sich der ESP anmeldet – am einfachsten
+          ein eigener HA-Benutzer, etwa <code>waterrower</code>.</p>
+        <p>Gleich mit dabei: die <b>ESPHome Device Builder</b>-App, die brauchst du im
+          übernächsten Schritt.</p>`
+    },
+    {
+      id: "broker-docker",
+      title: "Broker als Container",
+      when: (s) => s.broker === "no" && s.ha !== "yes",
+      html: `
+        <p>Ohne Home Assistant bringt der Tracker seinen eigenen Broker mit. Mosquitto 2
+          lauscht von sich aus auf nichts und lässt niemanden herein – das ist die richtige
+          Vorgabe und der Grund, warum eine Passwortdatei angelegt werden muss:</p>
+        <div class="cmd"><pre><code>cd docker
+mkdir -p mosquitto/config mosquitto/data
+docker run --rm -v "$PWD/mosquitto/config:/mosquitto/config" \\
+  eclipse-mosquitto:2 mosquitto_passwd -c -b /mosquitto/config/passwd waterrower DEIN-PASSWORT</code></pre></div>
+        <p>Dasselbe Passwort als <code>MQTT_PASSWORD</code> in eine <code>.env</code>
+          daneben. Gestartet wird später gemeinsam mit dem Tracker.</p>
+        <div class="note">Port 1883 muss veröffentlicht werden, weil der ESP im Netz hängt
+          und nicht im Stack. Er gehört aber ins <b>LAN</b> – nicht im Router freigeben.
+          Die Arena braucht keinen Zugriff auf deinen Broker, der Tracker schiebt von
+          innen nach außen.</div>`
+    },
+    {
+      id: "secrets",
+      title: "secrets.yaml ausfüllen",
+      when: (s) => s.hw === "no",
+      html: `
+        <p><code>esphome/secrets.yaml.example</code> nach <code>esphome/secrets.yaml</code>
+          kopieren und eintragen: WLAN, dazu Adresse, Benutzer und Passwort des Brokers.
+          Die Datei wird nie eingecheckt.</p>`
+    },
+    {
+      id: "flash-ha",
+      title: "Firmware über den Device Builder flashen",
+      when: (s) => s.hw === "no" && s.ha === "yes",
+      html: `
+        <p><code>esphome/waterrower.yaml</code> im Device Builder als neues Gerät anlegen,
+          bei <code>web_server.allowed_origins</code> die Adresse deiner HA-Instanz
+          eintragen und einmal <b>über die COM-Buchse</b> flashen.</p>
+        <div class="note">Kein serieller Port sichtbar? BOOT gedrückt halten, Kabel
+          einstecken, BOOT loslassen.</div>
+        <p>Danach läuft alles über die Luft, das Kabel kann weg. Home Assistant findet
+          das Gerät von selbst – übernehmen und einem Bereich zuordnen.</p>`
+    },
+    {
+      id: "flash-cli",
+      title: "Firmware über die Kommandozeile flashen",
+      when: (s) => s.hw === "no" && s.ha !== "yes",
+      html: `
+        <p>Der Device Builder ist eine Bequemlichkeit, keine Voraussetzung. Dieselbe
+          Konfiguration übersetzt auch die ESPHome-CLI, und dem ESP ist einerlei, wer
+          sie gebaut hat:</p>
+        <div class="cmd"><pre><code>pip install esphome
+cd esphome
+esphome run waterrower.yaml</code></pre></div>
+        <p><code>run</code> übersetzt, fragt nach dem seriellen Port, flasht und zeigt
+          danach das Log – dort taucht <code>S4 link up</code> auf. Spätere Änderungen
+          gehen aus demselben Ordner über die Luft; dann statt des Ports die Adresse
+          des Geräts wählen.</p>
+        <div class="note">Ohne Home Assistant hat der <code>api:</code>-Block niemanden
+          zum Reden. Er darf drinbleiben, er kostet nichts – oder du löschst ihn samt
+          <code>web_server.allowed_origins</code>. Alles, was Tracker und Arena brauchen,
+          läuft über MQTT.</div>
+        <p>Lieber ohne lokales Python? Geht auch im Container:</p>
+        <div class="cmd"><pre><code>docker run --rm -it --device=/dev/ttyUSB0 \\
+  -v "$PWD:/config" ghcr.io/esphome/esphome run waterrower.yaml</code></pre></div>
+        <div class="note">Der erste Flash muss über das Kabel gehen. Danach
+          geht alles über die Luft – und dafür gibt es einen bequemeren Weg,
+          siehe den nächsten Schritt.</div>`
+    },
+    {
+      id: "flash-browser",
+      title: "Spätere Änderungen aus dem Browser",
+      when: (s) => s.ha !== "yes",
+      html: `
+        <p>Ist die Firmware einmal drauf, braucht jede weitere Änderung keine
+          Kommandozeile mehr. In der Compose-Datei den <code>esphome</code>-Block
+          einkommentieren und <code>http://&lt;host&gt;:6052/</code> öffnen: das ist
+          das ESPHome-Dashboard. Es bearbeitet die YAML, übersetzt sie und flasht
+          über WLAN.</p>
+        <p>Die Konfiguration liegt schon bereit. Im Tracker unter <b>Verbindung →
+          Firmware auf dem ESP</b> steht sie zur Auswahl:</p>
+        <ul>
+          <li><b>mitgeliefert</b> – die YAML, mit der dieses Tracker-Image gebaut
+            wurde. Passt zur laufenden Version und braucht kein Netz.</li>
+          <li><b>neueste von GitHub</b> – wird auf Knopfdruck geholt, nie im
+            Hintergrund.</li>
+          <li><b>im Ordner</b> – was schon in <code>esphome-data</code> liegt.</li>
+        </ul>
+        <p>Auswählen, <b>Ins ESPHome-Verzeichnis</b> drücken, die eigene
+          <code>secrets.yaml</code> danebenlegen – beide Container teilen sich den
+          Ordner, das Dashboard sieht die Datei sofort.</p>
+        <div class="note">Der Tracker übersetzt selbst nichts. Dafür bräuchte er
+          eine ganze Toolchain in genau dem Container, der vor allem eines soll:
+          weiter aufzeichnen. Die Karte zeigt außerdem, welche Version der ESP
+          meldet – ein Unterschied ist kein Fehler, erklärt aber ein fehlendes
+          Feld.</div>`
+    },
+    {
+      id: "verkabeln",
+      title: "S4 anschließen",
+      when: (s) => s.hw === "no",
+      html: `
+        <div class="cmd"><pre><code>Netzteil ──► [COM]  ESP32-S3  [USB] ──USB-C──► Adapter ──► S4</code></pre></div>
+        <p>Im ESPHome-Log erscheint <code>S4 link up</code>, danach füllen sich die Werte.
+          Ein paar Züge rudern – eine Einheit startet beim ersten Schlag.</p>`
+    },
+    {
+      id: "dashboard",
+      title: "Dashboard in Home Assistant",
+      when: (s) => s.ha === "yes",
+      html: `
+        <p><code>homeassistant/dashboard.yaml</code> importieren: Live-Kacheln,
+          Zusammenfassung der Einheit, Verlauf und die Gerätesteuerung.</p>`
+    },
+    {
+      id: "tracker-mosq",
+      title: "Tracker samt Broker starten",
+      when: (s) => s.broker === "no" && s.ha !== "yes",
+      html: `
+        <div class="cmd"><pre><code>docker compose -f docker-compose.mosquitto.yml up -d</code></pre></div>
+        <p>Broker auf <code>&lt;host&gt;:1883</code>, Tracker auf
+          <code>&lt;host&gt;:8080</code>. Auf den Broker ist der Tracker schon
+          eingestellt, das Formular kannst du zulassen.</p>`
+    },
+    {
+      id: "tracker",
+      title: "Tracker starten",
+      when: (s) => !(s.broker === "no" && s.ha !== "yes"),
+      html: `
+        <div class="cmd"><pre><code>cd docker
+docker compose up -d</code></pre></div>
+        <p>Dann <code>http://&lt;host&gt;:8080/</code> öffnen. Beim ersten Besuch fragt
+          er nach dem Broker – Adresse, Port, Login, Topic-Präfix. Das Präfix muss zu
+          <code>topic_prefix</code> in der Firmware passen.</p>
+        <div class="note"><code>TZ</code> in der Compose-Datei muss zur Zeitzone des ESP
+          passen: die Kennungen der Einheiten sind lokale Zeitstempel.</div>`
+    },
+    {
+      id: "arena-join",
+      title: "Der Arena beitreten",
+      when: (s) => s.role === "join",
+      html: `
+        <p>Den Einladungslink öffnen und ein Passwort vergeben – mindestens zwölf Zeichen
+          und drei der vier Sorten (klein, groß, Ziffern, Sonderzeichen). Der Link gilt
+          genau einmal.</p>
+        <p>Dann in der Arena unter <b>Konto → Tracker-Verbindung</b> ein Token anlegen.
+          Es wird <b>nur einmal angezeigt</b>; sofort kopieren.</p>
+        <p>Im Tracker unter <b>Arena</b> die Adresse des Servers und dieses Token
+          eintragen und den Haken setzen. Nach ein paar Sekunden steht dein Name in der
+          Arena auf „online“.</p>
+        <div class="note">Aufgezeichnet wird weiterhin bei dir. Die Arena bekommt eine
+          Kopie – und Einheiten, die sie verpasst hat, schiebt der Tracker beim nächsten
+          Verbinden nach.</div>`
+    },
+    {
+      id: "arena-host",
+      title: "Arena aufsetzen",
+      when: (s) => s.role === "host",
+      html: `
+        <p>Repo auf den Docker-Host, dann im Ordner <code>server/</code>:</p>
+        <div class="cmd"><pre><code>echo "ARENA_ADMIN_PASSWORD=waehl-was-langes" > .env
+docker compose up -d --build</code></pre></div>
+        <p>Oberfläche auf <code>http://&lt;host&gt;:8090</code>, Anmeldung als
+          <code>admin</code>.</p>
+        <div class="note warn"><code>ARENA_SECURE_COOKIES</code> bleibt auf <code>0</code>,
+          solange du über <code>http://</code> gehst – sonst verwirft der Browser das
+          Sitzungs-Cookie und die Anmeldung hält nicht.</div>
+        <p>Wenn das steht, den Tunnel dazu: Token aus Cloudflare Zero Trust in die
+          <code>.env</code>, den Public Hostname auf <code>http://arena:8090</code> zeigen
+          lassen, <code>ARENA_SECURE_COOKIES</code> auf <code>1</code>:</p>
+        <div class="cmd"><pre><code>docker compose --profile tunnel up -d --build</code></pre></div>
+        <div class="note"><b>Danach den <code>ports:</code>-Block löschen.</b> Solange der
+          Port direkt erreichbar ist, kann jeder eine beliebige Absenderadresse behaupten
+          und damit an allen Sperren vorbei.</div>`
+    },
+    {
+      id: "arena-athletes",
+      title: "Athleten anlegen",
+      when: (s) => s.role === "host",
+      html: `
+        <p>Das <code>admin</code>-Konto verwaltet und rudert nicht: keine Kacheln, keine
+          Rennen, keine Bestenlisten. <b>Leg dir also auch ein Athleten-Konto an</b> und
+          behalte <code>admin</code> für die Verwaltung.</p>
+        <p>Unter <b>Konto</b> je Person einen Athleten anlegen – du bekommst einen
+          einmaligen Einladungslink zum Weitergeben. Einen öffentlichen Signup gibt es
+          nicht.</p>
+        <p>Ebenfalls dort: <b>Vorlagen</b> für wiederkehrende Rennen und das
+          <b>Sicherheitspanel</b> mit den Sperren und den Fehlversuchen der letzten
+          24 Stunden.</p>`
+    },
+    {
+      id: "rudern",
+      title: "Rudern",
+      when: () => true,
+      html: `
+        <p>Eine Einheit beginnt beim ersten Schlag. Beenden kannst du sie im Tracker,
+          in der Arena auf deiner eigenen Kachel – oder gar nicht, dann macht der Monitor
+          nach genügend Ruhe selbst zu. Der Unterschied ist nur, <em>wann</em> die
+          Zusammenfassung kommt.</p>
+        <p>Ein Rennen startet mit zehn Sekunden Countdown, nachdem die Arena alle
+          Monitore auf null gesetzt hat. Die Ziellinie beendet deine Einheit
+          <b>nicht</b> – ausrudern verfälscht das Ergebnis nicht, deine Bahn friert im
+          Ziel ein.</p>`
+    }
+  ];
+
+  const state = { role: "join", ha: "no", broker: "no", hw: "no" };
+  try {
+    Object.assign(state, JSON.parse(localStorage.getItem("wr-setup") || "{}"));
+  } catch (e) { /* privates Fenster o.ä. - Vorgaben bleiben stehen */ }
+
+  const stepsEl = document.getElementById("steps");
+  const emptyEl = document.getElementById("empty");
+  const tallyEl = document.getElementById("tally");
+
+  function render() {
+    const apply = STEPS.filter((s) => s.when(state));
+    stepsEl.textContent = "";
+    apply.forEach((step, i) => {
+      const li = document.createElement("li");
+      li.className = "step";
+      const num = document.createElement("div");
+      num.className = "num";
+      num.textContent = String(i + 1).padStart(2, "0");
+      const body = document.createElement("div");
+      body.className = "body";
+      const h = document.createElement("h3");
+      h.textContent = step.title;
+      body.appendChild(h);
+      const rest = document.createElement("div");
+      rest.innerHTML = step.html;
+      body.appendChild(rest);
+      li.append(num, body);
+      stepsEl.appendChild(li);
+    });
+    emptyEl.hidden = apply.length > 0;
+    tallyEl.innerHTML = `<b>${apply.length}</b> von ${STEPS.length} Schritten betreffen dich`;
+    wireCopy();
+  }
+
+  function wireCopy() {
+    stepsEl.querySelectorAll(".cmd").forEach((box) => {
+      if (box.querySelector("button")) return;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = "kopieren";
+      btn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(box.querySelector("code").textContent);
+          btn.textContent = "kopiert";
+        } catch (e) {
+          const r = document.createRange();
+          r.selectNodeContents(box.querySelector("code"));
+          getSelection().removeAllRanges();
+          getSelection().addRange(r);
+          btn.textContent = "markiert";
+        }
+        setTimeout(() => { btn.textContent = "kopieren"; }, 1600);
+      });
+      box.appendChild(btn);
+    });
+  }
+
+  document.querySelectorAll(".panel input").forEach((input) => {
+    if (state[input.name] === input.value) input.checked = true;
+    input.addEventListener("change", () => {
+      state[input.name] = input.value;
+      try { localStorage.setItem("wr-setup", JSON.stringify(state)); } catch (e) {}
+      render();
+    });
+  });
+
+  render();
+</script>
