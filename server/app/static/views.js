@@ -224,7 +224,12 @@ async function selectSession(id) {
 async function paintDetail(id) {
   const host = $("session-detail");
   let data;
-  try { data = await getSession(id); } catch { return; }
+  try {
+    data = await getSession(id);
+  } catch (err) {
+    viewFailed(host, err);
+    return;
+  }
   host.innerHTML = "";
   const s = data.session, samples = data.samples;
 
@@ -567,7 +572,12 @@ async function paintSecurity() {
   // in which a second render can clear the same node and both runs then
   // append into it - which is how this section came out twice.
   let data;
-  try { data = await api("/api/security"); } catch { return; }
+  try {
+    data = await api("/api/security");
+  } catch (err) {
+    viewFailed(host, err);
+    return;
+  }
   host.innerHTML = "";
   host.appendChild(el("h2", null, t("accSecurity")));
 

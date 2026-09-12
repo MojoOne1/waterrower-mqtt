@@ -832,7 +832,9 @@ class Database:
             rows = c.execute(
                 """SELECT r.id AS race_id, e.athlete_id, e.place
                    FROM races r JOIN race_entries e ON e.race_id = r.id
-                   WHERE r.state = 'finished' AND e.place IS NOT NULL AND e.kind = 'live'
+                   JOIN athletes a ON a.id = e.athlete_id
+                   WHERE r.state = 'finished' AND e.place IS NOT NULL
+                     AND e.kind = 'live' AND a.is_admin = 0
                    ORDER BY r.id, e.place"""
             ).fetchall()
         return [dict(r) for r in rows]

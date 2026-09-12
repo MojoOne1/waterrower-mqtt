@@ -61,6 +61,8 @@ const I18N = {
     metric_race_wins: "Siege insgesamt", metric_race_win_streak: "Siege in Folge",
     metric_day_streak: "Tage in Folge", metric_race_margin_s: "Vorsprung im Ziel",
     connOn: "verbunden", connOff: "getrennt", connWait: "verbinde …",
+    loadFailed: (why) => `Konnte nicht geladen werden${why ? ": " + why : "."}`,
+    tryAgain: "Nochmal versuchen",
 
     arenaNow: "Gerade auf dem Wasser", arenaWeek: "Diese Woche",
     nobodyRowing: "Gerade rudert niemand.",
@@ -205,6 +207,8 @@ const I18N = {
     metric_race_wins: "Wins in total", metric_race_win_streak: "Wins in a row",
     metric_day_streak: "Days in a row", metric_race_margin_s: "Winning margin",
     connOn: "connected", connOff: "disconnected", connWait: "connecting …",
+    loadFailed: (why) => `Could not be loaded${why ? ": " + why : "."}`,
+    tryAgain: "Try again",
 
     arenaNow: "On the water now", arenaWeek: "This week",
     nobodyRowing: "Nobody is rowing right now.",
@@ -428,6 +432,22 @@ async function api(path, opts = {}) {
     throw err;
   }
   return res.status === 204 ? null : res.json();
+}
+
+/* A view whose data does not arrive used to leave an empty page and no
+   word about why - a blank tab reads as a broken app, which is worse than
+   the error it is hiding. */
+function viewFailed(host, err) {
+  if (!host) return;
+  host.innerHTML = "";
+  const box = el("p", "empty");
+  box.appendChild(document.createTextNode(t("loadFailed", (err && err.message) || "")));
+  const again = el("a", null, t("tryAgain"));
+  again.href = "#";
+  again.onclick = (e) => { e.preventDefault(); render(); };
+  box.appendChild(document.createTextNode(" "));
+  box.appendChild(again);
+  host.appendChild(box);
 }
 
 // --- Sign in --------------------------------------------------------------

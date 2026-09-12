@@ -201,9 +201,14 @@ async def _pump(websocket: WebSocket, viewer: Viewer) -> None:
 
 async def _drain(websocket: WebSocket) -> None:
     """Nothing useful comes up this socket, but reading it is how a closed
-    connection is noticed."""
-    while True:
-        await websocket.receive_text()
+    connection is noticed - which is the normal end, not an error. Letting
+    the disconnect escape put a stack trace in the log on every page the
+    browser navigated away from."""
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        return
 
 
 # --- UI --------------------------------------------------------------------

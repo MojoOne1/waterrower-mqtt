@@ -10,7 +10,12 @@ VIEWS.badges = async function badges() {
   onData = () => {};
 
   let data;
-  try { data = await api("/api/achievements"); } catch { return; }
+  try {
+    data = await api("/api/achievements");
+  } catch (err) {
+    viewFailed($("badge-summary"), err);
+    return;
+  }
   const all = data.achievements;
   const mine = new Set(data.mine);
 
