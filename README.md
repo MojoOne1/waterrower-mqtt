@@ -571,18 +571,18 @@ not the data.
 ### Deploy
 
 The compose file at the repository root runs the arena, the tunnel that
-publishes it, and the tracker alongside. Put the repo on the Docker host and
-create a `.env` next to it (see `.env.example`) with at least an admin
-password:
+publishes it, and the tracker alongside. Both images are published, so the
+file is all you need - put it on the Docker host with a `.env` next to it
+(see `.env.example`) carrying at least an admin password:
 
 ```
 ARENA_ADMIN_PASSWORD=something-long
 ```
 
-Then, from `server/`:
+Then, from the folder holding that file:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 Open `http://<host>:8090` and sign in as `admin`. The database lives at
@@ -606,8 +606,8 @@ not stick. Take both back out afterwards: anything able to reach 8090
 directly could claim any address in `X-Forwarded-For` and walk around every
 lockout.
 
-The `--build` is only needed until this branch lands on `master`; after that
-the workflow publishes the image and plain `docker compose up -d` pulls it.
+Add `--build` only when you are working on the code: the `build:` blocks in
+the file then build from a checkout instead of pulling the published image.
 
 Any other reverse proxy works as well – the app listens on `8090`, honours
 `X-Forwarded-*`, and needs nothing but WebSocket pass-through.

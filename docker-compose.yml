@@ -1,6 +1,6 @@
 # Row together: the arena, the tunnel that publishes it, and a tracker.
 #
-#   docker compose up -d --build
+#   docker compose up -d
 #
 # This is the file for the one person who provides the arena. Everybody
 # else rows - alone or into this arena - and wants docker/docker-compose.yml
@@ -61,8 +61,9 @@
 # that it is cached in ./esphome/.esphome.
 #
 # ---------------------------------------------------------------------------
-# The --build is only needed until this lands on master; after that the
-# workflow publishes both images and plain `up -d` pulls them.
+# Both images are published, so `up -d` pulls them and no checkout is
+# needed. The `build:` blocks below are only for working on the code -
+# `up -d --build` then builds from this checkout instead of pulling.
 name: waterrower
 
 services:
