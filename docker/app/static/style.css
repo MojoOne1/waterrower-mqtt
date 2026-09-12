@@ -98,6 +98,10 @@
 }
 
 * { box-sizing: border-box; }
+/* The race strip and a few others are laid out with flex, which beats
+   the browser default [hidden] rule on specificity - so say it
+   properly, or an empty strip sits above the monitor all day. */
+[hidden] { display: none !important; }
 html { font-size: 16px; }
 body {
   margin: 0;
