@@ -33,6 +33,14 @@ BACKFILL_MAX_SAMPLES = 20000
 RETRY_MIN, RETRY_MAX = 3, 60
 
 
+class _Reconfigured(Exception):
+    """Not a failure: somebody pressed Save and the socket has to follow."""
+
+
+class _Stopping(Exception):
+    """Not a failure either: we are shutting down."""
+
+
 class Uplink:
     def __init__(self, db, settings: dict, on_command=None):
         self.db = db
@@ -148,6 +156,15 @@ class Uplink:
                 # never in a tight loop.
                 delay = RETRY_MIN
                 await asyncio.sleep(1)
+            except _Stopping:
+                break                  # no backoff on the way out
+            except _Reconfigured:
+                # Neither an error to show the user nor something to back
+                # off from - the new settings are wanted now, not in a
+                # minute, and the form has just been saved.
+                self.connected = False
+                self.last_error = ""
+                delay = RETRY_MIN
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -167,7 +184,24 @@ class Uplink:
             url = "wss://" + url
         return url + "/ws/uplink"
 
+    def _drain_stale(self) -> None:
+        """Forget a reconnect marker left over from a disconnected spell.
+
+        It asked for a socket carrying the new settings, and that is
+        exactly what is about to be opened. Left in the queue it would
+        tear that fresh connection down instead, and the backoff would
+        grow for no reason at all.
+        """
+        keep = []
+        while not self._queue.empty():
+            msg = self._queue.get_nowait()
+            if msg.get("type") != "__reconnect__":
+                keep.append(msg)
+        for msg in keep:               # data keeps its order
+            self._queue.put_nowait(msg)
+
     async def _session(self) -> None:
+        self._drain_stale()
         url = self._ws_url()
         log.info("Uplink connecting to %s", url)
         async with websockets.connect(url, open_timeout=15, close_timeout=5,
@@ -206,9 +240,9 @@ class Uplink:
         while True:
             msg = await self._queue.get()
             if msg.get("type") == "__stop__":
-                raise RuntimeError("stopping")
+                raise _Stopping()
             if msg.get("type") == "__reconnect__":
-                raise RuntimeError("settings changed")
+                raise _Reconfigured()
             await ws.send(json.dumps(msg))
             self.last_sent = time.time()
 
