@@ -12,8 +12,8 @@ unlike the rest of this repository, which is MIT. See [LICENSE](LICENSE).
 
 | File | Part |
 |---|---|
-| `esp32case_bottom.stl` | Bottom with a flat underside, for Velcro or Dual Lock – ~28 g PLA, 112 × 35 × 16 mm |
-| `esp32case_bottom_ears.stl` | The same bottom with zip-tie ears on both long sides – ~29 g PLA, 112 × 57 × 16 mm |
+| `esp32case_bottom.stl` | Bottom with a flat underside, for Velcro or Dual Lock – ~28 g PLA, 114 × 35 × 16 mm |
+| `esp32case_bottom_ears.stl` | The same bottom with zip-tie ears on both long sides – ~30 g PLA, 114 × 57 × 16 mm |
 | `esp32case_lid.stl` | Lid, fits either bottom – ~7 g PLA |
 
 ## Where to mount it
@@ -41,8 +41,9 @@ for strapping it to a strut or tube.
 
 **Bottom**
 - Side hole for the external antenna closed.
-- Cable plinth in front of the two USB-C ports, 32 mm long, its top just
-  below the plug housings, with a zip-tie tunnel running across it.
+- Cable plinth in front of the two USB-C ports, 34 mm long, its top just
+  below the plug housings. A zip-tie tunnel runs across it, split by an
+  open pocket between the two cables, so each cable gets its own tie.
 - `_ears` variant only: zip-tie ears on both long sides, flush with the
   underside.
 - Repaired: the original STL had one back-to-back duplicate triangle (a
@@ -64,9 +65,13 @@ for strapping it to a strut or tube.
 ## Zip ties
 
 - Up to ~5 mm wide: tunnel 5.6 × 1.8 mm, ear slots 5.5 × 2.6 mm.
-- **Strain relief:** one tie through the tunnel and over both cables holds
-  them on the plinth past the plug housings, so a pull on a cable does not
-  reach the ESP's sockets.
+- **Strain relief, one tie per cable:** push the tie into the tunnel from
+  the outer side of the plinth, let it come up in the pocket between the
+  cables, and close it over its own cable. Do the same from the other side
+  for the second cable. Each cable is held on the plinth past its plug
+  housing, so a pull does not reach the ESP's sockets, and either cable can
+  be swapped without touching the other.
+- Tunnel 5.6 × 1.8 mm under a 2.5 mm roof, pocket 6 × 9 mm.
 - **Ears** (`_ears` variant): a tie through each ear around a strut or
   tube. One tie through both ears crosses the lid, which is fine.
 

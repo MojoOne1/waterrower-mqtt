@@ -190,7 +190,7 @@ cables any more.
 
 `case/` has a printable case for the board: a remix of
 [peaberry's ESP32-S3 DevKitC-1 case](https://www.thingiverse.com/thing:7284377)
-with a cable plinth in front of the ports – one zip tie holds both cables
+with a cable plinth in front of the ports – each cable gets its own zip tie
 there, so a pull never reaches the sockets – and the ports marked on the
 lid. It prints without supports.
 
