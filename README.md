@@ -94,6 +94,7 @@ device controls.
 |---|---|
 | `VERSION` | Project version, mirrored in the firmware's `substitutions.version` (see [Versioning](#versioning)) |
 | `.github/workflows/docker-publish.yml` | Builds and publishes the tracker and arena images on every push |
+| `case/` | 3D-printable case for the ESP, with cable strain relief and zip-tie ears (CC BY-SA 4.0, see [Case](#case)) |
 | `docs/` | Screenshots used in this README |
 
 ### How they fit together
@@ -184,6 +185,15 @@ USB power supply ──► [COM]  ESP32-S3  [USB] ──USB-C──► C-to-Mini
 A USB-C-to-USB-A adapter plus the S4's own cable works just as well; the
 Mini-USB adapter simply saves a link in the chain, and nobody has USB-A
 cables any more.
+
+### Case
+
+`case/` has a printable case for the board: a remix of
+[peaberry's ESP32-S3 DevKitC-1 case](https://www.thingiverse.com/thing:7284377)
+with a cable plinth in front of the ports – one zip tie holds both cables
+there, so a pull never reaches the sockets – zip-tie ears for mounting
+behind the monitor, and the ports marked on the lid. Both parts print
+without supports. Details in [case/README.md](case/README.md).
 
 ## Firmware
 
@@ -979,4 +989,5 @@ Firmware and tracker:
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE), except `case/`: it is a derivative of a CC BY-SA 4.0
+design and stays under that licence ([case/LICENSE](case/LICENSE)).
