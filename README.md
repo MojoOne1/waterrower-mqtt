@@ -94,7 +94,7 @@ device controls.
 |---|---|
 | `VERSION` | Project version, mirrored in the firmware's `substitutions.version` (see [Versioning](#versioning)) |
 | `.github/workflows/docker-publish.yml` | Builds and publishes the tracker and arena images on every push |
-| `case/` | 3D-printable case for the ESP, with cable strain relief and zip-tie ears (CC BY-SA 4.0, see [Case](#case)) |
+| `case/` | 3D-printable case for the ESP, with cable strain relief, for the back of the S4 or the frame (CC BY-SA 4.0, see [Case](#case)) |
 | `docs/` | Screenshots used in this README |
 
 ### How they fit together
@@ -191,9 +191,14 @@ cables any more.
 `case/` has a printable case for the board: a remix of
 [peaberry's ESP32-S3 DevKitC-1 case](https://www.thingiverse.com/thing:7284377)
 with a cable plinth in front of the ports – one zip tie holds both cables
-there, so a pull never reaches the sockets – zip-tie ears for mounting
-behind the monitor, and the ports marked on the lid. Both parts print
-without supports. Details in [case/README.md](case/README.md).
+there, so a pull never reaches the sockets – and the ports marked on the
+lid. It prints without supports.
+
+Mount it on the back of the S4 with Velcro or Dual Lock: the ESP then
+moves with the monitor, so tilting it never flexes the cable at the S4's
+fragile Mini-USB socket. The default bottom has a flat underside for that;
+a variant with zip-tie ears is there for strapping it to the frame instead.
+Details in [case/README.md](case/README.md).
 
 ## Firmware
 

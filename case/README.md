@@ -1,7 +1,7 @@
 # ESP32 case
 
-A 3D-printable case for the ESP32-S3-DevKitC-1 N16R8, adapted for mounting
-behind the rowing machine.
+A 3D-printable case for the ESP32-S3-DevKitC-1 N16R8, made to sit on the
+back of the S4 monitor.
 
 It is a remix of
 [ESP32-S3 DevKitC-1 Case by peaberry](https://www.thingiverse.com/thing:7284377),
@@ -12,8 +12,30 @@ unlike the rest of this repository, which is MIT. See [LICENSE](LICENSE).
 
 | File | Part |
 |---|---|
-| `esp32case_mod_bottom.stl` | Bottom, ~29 g PLA, 112 × 57 × 16 mm |
-| `esp32case_mod_top.stl` | Lid, ~7 g PLA |
+| `esp32case_bottom.stl` | Bottom with a flat underside, for Velcro or Dual Lock – ~28 g PLA, 112 × 35 × 16 mm |
+| `esp32case_bottom_ears.stl` | The same bottom with zip-tie ears on both long sides – ~29 g PLA, 112 × 57 × 16 mm |
+| `esp32case_lid.stl` | Lid, fits either bottom – ~7 g PLA |
+
+## Where to mount it
+
+On the back of the S4, with Velcro or 3M Dual Lock – that is what
+`esp32case_bottom.stl` is for.
+
+The reason is the Mini-USB socket on the S4, the most fragile part of the
+whole setup. With the ESP on the fixed frame, every tilt or turn of the
+monitor flexes the cable right at that socket. With the ESP on the monitor
+they move together, and the data cable never carries a load. Only the
+power cable moves then, and the plinth takes care of that.
+
+- Keep the S4's battery compartment clear, so the batteries can still be
+  changed without pulling the ESP off.
+- Velcro or Dual Lock rather than foam tape, so the ESP comes off for
+  flashing or opening.
+- On a strongly curved surface a narrow strip along the case holds better
+  than a large pad.
+
+Mounting on the frame instead? `esp32case_bottom_ears.stl` has zip-tie ears
+for strapping it to a strut or tube.
 
 ## Changes to the original
 
@@ -21,7 +43,8 @@ unlike the rest of this repository, which is MIT. See [LICENSE](LICENSE).
 - Side hole for the external antenna closed.
 - Cable plinth in front of the two USB-C ports, 32 mm long, its top just
   below the plug housings, with a zip-tie tunnel running across it.
-- Zip-tie ears on both long sides, flush with the underside.
+- `_ears` variant only: zip-tie ears on both long sides, flush with the
+  underside.
 - Repaired: the original STL had one back-to-back duplicate triangle (a
   zero-thickness fin), so it was not a closed solid.
 
@@ -32,8 +55,9 @@ unlike the rest of this repository, which is MIT. See [LICENSE](LICENSE).
 
 ## Printing
 
-- **Bottom:** floor on the bed, like the original. Plinth and ears sit
-  flush with the underside, the tie tunnel bridges 5.6 mm. No supports.
+- **Bottom:** floor on the bed, like the original. The plinth (and the
+  ears) sit flush with the underside, the tie tunnel bridges 5.6 mm. No
+  supports.
 - **Lid:** top face down on the bed, like the original (its lip points
   up). The engraving then forms in the first layers and comes out crisp.
 
@@ -43,8 +67,8 @@ unlike the rest of this repository, which is MIT. See [LICENSE](LICENSE).
 - **Strain relief:** one tie through the tunnel and over both cables holds
   them on the plinth past the plug housings, so a pull on a cable does not
   reach the ESP's sockets.
-- **Mounting:** a tie through each ear around a strut or tube. One tie
-  through both ears crosses the lid, which is fine.
+- **Ears** (`_ears` variant): a tie through each ear around a strut or
+  tube. One tie through both ears crosses the lid, which is fine.
 
 With RST and BOOT covered, flashing over USB with BOOT held – only needed
 if an OTA update ever leaves the ESP unbootable – means opening the case.
